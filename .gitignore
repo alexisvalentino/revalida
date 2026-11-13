@@ -1,8 +1,25 @@
+# Secrets and local environment overrides. Keep the checked-in template.
 .env
-node_modules/
-.DS_Store
+.env.*
+!.env.example
 
-# /newroaster's raw sources (transcripts, essays, notes) stay on your machine; only the brain ships
+# Runtime data and dependencies.
+app/.daily-limit.json
+node_modules/
+coverage/
+dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor files.
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Advisor-builder source material (transcripts, essays, notes) stays on your machine; only the brain ships.
 build/
 
 # your councils stay on your machine; the examples ship with the repo
