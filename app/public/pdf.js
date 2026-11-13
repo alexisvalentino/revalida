@@ -1,6 +1,6 @@
-// The Roast Room verdict as a one or two page branded PDF, built in the browser with a
+// The Revalida verdict as a one or two page branded PDF, built in the browser with a
 // vendored jsPDF, so the room still needs nothing installed. White page, Montserrat,
-// AIS Dark Blue type, AIS Blue as the accent only (AIS Brand Guidelines v1).
+// Revalida's navy, white, and cyan identity carries into the report.
 
 const C = {
   ink: [7, 18, 28], soft: [55, 68, 82], mute: [112, 124, 138], rule: [226, 231, 237],
@@ -50,7 +50,7 @@ export async function downloadVerdictPdf({ setup, verdict: ev, byKey, id }) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "pt", format: "letter", compress: true });
   await addFonts(doc);
-  const logo = "data:image/png;base64," + (await fetchBase64("/brand/ais-horizontal-on-light.png"));
+  const logo = "data:image/png;base64," + (await fetchBase64("/brand/revalida-mark-dark.png"));
 
   const v = ev.verdict;
   const seats = ev.seats || [];
@@ -114,8 +114,8 @@ export async function downloadVerdictPdf({ setup, verdict: ev, byKey, id }) {
   };
 
   // ---------------------------------------------------------------- header
-  doc.addImage(logo, "PNG", M, y, 62, 62 * 374 / 900, "ais-logo", "SLOW");
-  font(15, "bold", C.ink); doc.text("Roast Room", W - M, y + 12, { align: "right" });
+  doc.addImage(logo, "PNG", M, y - 3, 32, 32, "revalida-mark", "SLOW");
+  font(15, "bold", C.ink); doc.text("Revalida", W - M, y + 12, { align: "right" });
   font(8.5, "normal", C.mute); doc.text(`Verdict report · ${dateLine(id)}`, W - M, y + 25, { align: "right" });
   y += 40;
   doc.setDrawColor(...C.ink); doc.setLineWidth(1.2); doc.line(M, y, W - M, y);
@@ -218,14 +218,14 @@ export async function downloadVerdictPdf({ setup, verdict: ev, byKey, id }) {
     doc.setPage(p);
     doc.setDrawColor(...C.rule); doc.setLineWidth(0.75); doc.line(M, H - 46, W - M, H - 46);
     font(7.5, "semibold", C.mute);
-    const tag = `Roast Room by AI Automation Society · ${p} of ${pages}`;
+    const tag = `Revalida · ${p} of ${pages}`;
     const tagW = doc.getTextWidth(tag);
     doc.text(tag, W - M, H - 34, { align: "right" });
     font(7.5, "normal", C.mute);
     doc.text(doc.splitTextToSize(v.disclaimer || "Simulated advisors built from each person's public work. They are not the people and do not speak for them.", CW - tagW - 24), M, H - 34, { lineHeightFactor: 1.35 });
   }
 
-  const name = `Roast Room - ${String(setup.title || id || "verdict").replace(/[\\/:*?"<>|]+/g, "").slice(0, 80)}.pdf`;
+  const name = `Revalida - ${String(setup.title || id || "verdict").replace(/[\\/:*?"<>|]+/g, "").slice(0, 80)}.pdf`;
   doc.save(name);
   return name;
 }

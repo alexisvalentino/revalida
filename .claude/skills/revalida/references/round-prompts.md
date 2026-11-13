@@ -1,5 +1,7 @@
 # Round prompts
 
+This is a technical reference for the council format. The production web app builds its active prompts in `app/lib/council.mjs`; do not use this file to start a council outside the web intake, review, and explicit-confirmation flow.
+
 Paste these into each seat's Agent call. Replace the bracketed parts. Seats read the brief and earlier rounds from the session folder, so the cards stay verbatim without being pasted into every prompt.
 
 Agent type: `council-<seat>`. If that type is not registered in this session (agent files load at session start), spawn `general-purpose` and put these lines first: `Read .claude/agents/council-<seat>.md and follow it as your instructions for this whole task. Only read files; do not write anything.`
@@ -15,7 +17,7 @@ Paths in prompts are relative to the repo root; give the absolute repo root once
 ## Round 1: opening position
 
 ```
-ROAST ROOM COUNCIL, ROUND 1 OF 3: OPENING POSITION
+REVALIDA COUNCIL, ROUND 1 OF 3: OPENING POSITION
 
 Repo root: [absolute path]. You hold the [SEAT] seat ([pillar]). Read your brain's _hot.md, then at most three more brain files that fit this decision (frameworks.md and positions.md are usually the right ones).
 
@@ -51,7 +53,7 @@ Rules: argue from your pillar first. Use real numbers when the brief has them, a
 ## Round 2: debate
 
 ```
-ROAST ROOM COUNCIL, ROUND 2 OF 3: DEBATE
+REVALIDA COUNCIL, ROUND 2 OF 3: DEBATE
 
 Repo root: [absolute path]. You hold the [SEAT] seat. Read your brain's _hot.md again and any brain file you need to answer the others (at most three).
 
@@ -83,7 +85,7 @@ Rules: engage the actual arguments on the table. Move only for a better argument
 ## Round 3: ratification
 
 ```
-ROAST ROOM COUNCIL, ROUND 3 OF 3: VOTE ON THE DRAFT RESOLUTION
+REVALIDA COUNCIL, ROUND 3 OF 3: VOTE ON THE DRAFT RESOLUTION
 
 Repo root: [absolute path]. You hold the [SEAT] seat. You already argued this in two rounds; read only your _hot.md if you need it.
 
@@ -105,7 +107,7 @@ ONE LINE FOR THE FOUNDER: the thing from your pillar they must not forget.
 ## Single-seat consult
 
 ```
-ROAST ROOM COUNCIL, SINGLE-SEAT CONSULT
+REVALIDA COUNCIL, SINGLE-SEAT CONSULT
 
 Repo root: [absolute path]. You hold the [SEAT] seat. Read your brain's _hot.md, then at most four more brain files that fit the question.
 

@@ -1,19 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
-import { SEATS, BOARD, byKey, systemFor, parseCard, checkQuotes, defaultBoard, loadRoster } from "./seats.mjs";
-import * as ai from "./anthropic.mjs";
-import { S } from "./anthropic.mjs";
+import { SEATS, byKey, systemFor, parseCard, checkQuotes, loadRoster } from "./seats.mjs";
+import * as ai from "./openai.mjs";
+import { S, COUNCIL_MODEL } from "./openai.mjs";
 import { SESSIONS_DIR } from "./env.mjs";
 
 export const MODELS = {
-  seat: process.env.SEAT_MODEL || "claude-sonnet-5-5",
-  chair: process.env.CHAIR_MODEL || "claude-opus-5-5",
+  seat: COUNCIL_MODEL,
+  chair: COUNCIL_MODEL,
 };
 
 // The board comes from the roster: the saved default board, or every seat it lists.
 const chairSystem = (st) => {
   const seats = st.board.map((k) => byKey[k]);
-  return `You are the Chair of a Roast Room council: ${seats.length} simulated advisors built from the public work of ${seats.map((x) => `${x.name} (${x.pillar.toLowerCase()})`).join(", ")}.
+  return `You are the Chair of a Revalida council: ${seats.length} simulated advisors built from the public work of ${seats.map((x) => `${x.name} (${x.pillar.toLowerCase()})`).join(", ")}.
 You never argue a side and never add your own pillar. You run the room, keep score, and write in plain English: short sentences, no em dashes, no hype, no tee-ups like "here's the thing", no filler. Seat keys (for key fields only): ${seats.map((x) => x.key).join(", ")}. Whenever you write a seat's name in prose or in a seat field, use its display name: ${seats.map((x) => x.short).join(", ")}.`;
 };
 
@@ -52,13 +52,13 @@ export function subscribe(s, res) {
 // ---------------------------------------------------------------- prompts
 function briefBlock(st) {
   const opts = st.options.map((o) => `(${o.id}) ${o.label}`).join("\n");
-  return `THE DECISION: ${st.decision}\n\nOPTIONS:\n${opts}\n\n${st.brief}\n\nAssumptions the Chair made (marked as assumed; challenge them if they matter):\n${st.assumptions.map((a) => `- ${a}`).join("\n")}`;
+  return `THE DECISION: ${st.decision}\n\nOPTIONS:\n${opts}\n\n${st.brief}\n\nRemaining uncertainties disclosed by the Chair (challenge them if they matter):\n${st.assumptions.map((a) => `- ${a}`).join("\n")}`;
 }
 const optLine = (st) => st.options.map((o) => `${o.id} n/10`).join(" · ");
 
 function round1Prompt(st, seat) {
   const w = st.weights[seat.key];
-  return `ROAST ROOM COUNCIL, ROUND 1 OF 3: OPENING POSITION
+  return `REVALIDA COUNCIL, ROUND 1 OF 3: OPENING POSITION
 
 You hold the ${seat.short.toUpperCase()} seat (${seat.pillar}).
 
@@ -97,7 +97,7 @@ function cardsBlock(st, round) {
 function round2Prompt(st, seat) {
   const cr = st.cruxes.map((c, i) => `${i + 1}. ${c.question} (${c.sides.map((x) => `${x.position}: ${x.seats.map((k) => byKey[k]?.short || k).join(", ")}`).join("; ")})`).join("\n");
   const push = st.pressure?.[seat.key] ? `\nFor you specifically: ${st.pressure[seat.key]}\n` : "";
-  return `ROAST ROOM COUNCIL, ROUND 2 OF 3: DEBATE
+  return `REVALIDA COUNCIL, ROUND 2 OF 3: DEBATE
 
 You hold the ${seat.short.toUpperCase()} seat.
 
@@ -129,7 +129,7 @@ Rules: engage the actual arguments on the table. Move only for a better argument
 
 function round3Prompt(st, seat) {
   const d = st.draft;
-  return `ROAST ROOM COUNCIL, ROUND 3 OF 3: VOTE ON THE DRAFT RESOLUTION
+  return `REVALIDA COUNCIL, ROUND 3 OF 3: VOTE ON THE DRAFT RESOLUTION
 
 You hold the ${seat.short.toUpperCase()} seat.
 
@@ -184,35 +184,6 @@ function bandFor(score) {
 }
 
 // ---------------------------------------------------------------- chair calls
-async function chairSetup(st) {
-  const schema = S.obj({
-    title: S.str,
-    decision: S.str,
-    brief: S.str,
-    options: S.arr(S.obj({ id: S.enum("A", "B", "C", "D"), label: S.str })),
-    assumptions: S.arr(S.str),
-    weights: S.arr(S.obj({ seat: S.enum(...st.board), weight: S.int, reason: S.str })),
-    quick_seats: S.arr(S.enum(...st.board)),
-    seats: S.arr(S.enum(...st.board)),
-  });
-  return ai.json({
-    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 3000,
-    prompt: `A founder brought this to the council:
-
-"""${st.prompt}"""
-
-Set up the room.
-- title: the decision in 3 to 7 words.
-- decision: one line.
-- options: 2 to 4 options with ids A, B, C (D only if truly needed). Always include "don't do it" or "keep doing what you do now", and the obvious smaller version if the founder brought one big idea.
-- brief: under 200 words covering the business, resources, what success looks like, and the founder's lean, using only what the founder said. Do not invent facts.
-- assumptions: any number or fact you had to assume to make the brief usable, each one line. Keep it to what matters.
-- weights: one entry for every seat, weight 1 to 3 (3 = the decision lives in this pillar, 2 = materially affected, 1 = touched at the edges). Exactly one or two seats at 3. Reason in one line.
-- quick_seats: the four seats for a quick council: the two highest-weight seats, the seat that guards the downside (money, capital, or risk) if it is not already in, and the seat most likely to disagree with the others.
-- seats: ${st.pick ? "the board for a full council, five to seven seats: every seat at weight 2 or 3, the seat that guards the downside, and the seat most likely to disagree. Leave out seats at weight 1 unless they are the downside or dissent seat." : "every seat (the board is fixed)."}`,
-  });
-}
-
 async function chairCruxes(st) {
   const schema = S.obj({
     cruxes: S.arr(S.obj({ question: S.str, sides: S.arr(S.obj({ position: S.str, seats: S.arr(S.enum(...st.board)) })) })),
@@ -220,8 +191,8 @@ async function chairCruxes(st) {
     note: S.str,
     pressure: S.arr(S.obj({ seat: S.enum(...st.board), ask: S.str })),
   });
-  return ai.json({
-    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 3000,
+  return ai.councilJson({
+    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 6000,
     prompt: `${briefBlock(st)}
 
 ROUND 1 CARDS
@@ -244,8 +215,8 @@ async function chairDraft(st, interim) {
     cheapest_test: S.str,
     kill_criteria: S.str,
   });
-  return ai.json({
-    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 3000,
+  return ai.councilJson({
+    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 6000,
     prompt: `${briefBlock(st)}
 
 ROUND 2 CARDS (the debate)
@@ -274,8 +245,8 @@ async function chairVerdict(st, finalScores, recommended) {
     kill_criteria: S.str,
     revisit: S.str,
   });
-  return ai.json({
-    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 5000,
+  return ai.councilJson({
+    model: MODELS.chair, system: chairSystem(st), schema, maxTokens: 9000,
     prompt: `${briefBlock(st)}
 
 CRUXES: ${JSON.stringify(st.cruxes)}
@@ -306,11 +277,13 @@ async function runSeat(s, st, round, key, prompt) {
   emit(s, "seat_start", { round, seat: key });
   let text = "";
   try {
-    text = await ai.stream({
-      model: MODELS.seat, system: systemFor(key), maxTokens: 1400,
-      messages: [{ role: "user", content: prompt }],
+    const result = await ai.councilStream({
+      model: MODELS.seat, system: systemFor(key), maxTokens: round === 3 ? 3000 : 5000,
+      prompt,
       onText: (d) => { text += d; emit(s, "delta", { round, seat: key, text: d }); },
     });
+    if (result.truncated) throw new Error("The seat response hit the OpenAI output limit. Increase the council completion limit and retry.");
+    text = result.text;
   } catch (e) {
     emit(s, "seat_error", { round, seat: key, error: String(e.message || e) });
     throw e;
@@ -330,8 +303,10 @@ async function roundAll(s, st, round, promptFn) {
   emit(s, "round_done", { round, scores });
 }
 
-export function startCouncil(prompt, mode = "full") {
+export function startCouncil(prompt, mode = "full", selectedSeats = [], preflight = null) {
   const s = newSession(prompt, mode);
+  s.selectedSeats = selectedSeats;
+  s.preflight = preflight;
   run(s).catch((e) => {
     s.status = "error";
     emit(s, "error", { error: String(e.message || e) });
@@ -342,25 +317,20 @@ export function startCouncil(prompt, mode = "full") {
 }
 
 async function run(s) {
-  // "default" seats the saved default board; "ask" and "auto" let the Chair pick from every seat
-  // (there is no one to ask in the room, so "ask" picks like "auto" here)
+  if (!s.preflight) throw new Error("The council needs an intake review and explicit founder confirmation before it can start.");
   loadRoster();
-  const pick = BOARD.mode !== "default";
-  const st = (s.state = { prompt: s.prompt, mode: s.mode, pick, board: pick ? SEATS.map((x) => x.key) : defaultBoard(), cards: { 1: {}, 2: {}, 3: {} }, scores: {}, rounds: [] });
+  const selected = (s.selectedSeats || []).filter((k) => byKey[k]);
+  if (selected.length < 3 || !s.preflight) throw new Error("The council needs an approved intake and a confirmed advisor board before it can start.");
+  const st = (s.state = { prompt: s.prompt, mode: s.mode, board: SEATS.map((x) => x.key), cards: { 1: {}, 2: {}, 3: {} }, scores: {}, rounds: [] });
   emit(s, "phase", { phase: "setup", label: "The Chair is reading your question" });
-  const setup = await chairSetup(st);
+  const setup = s.preflight;
   Object.assign(st, {
     title: setup.title, decision: setup.decision, brief: setup.brief,
     options: setup.options, assumptions: setup.assumptions,
     weights: Object.fromEntries(st.board.map((k) => [k, { weight: 1, reason: "" }])),
   });
   for (const w of setup.weights) if (st.weights[w.seat]) st.weights[w.seat] = { weight: Math.max(1, Math.min(3, w.weight)), reason: w.reason };
-  const picked = [...new Set(setup.seats || [])].filter((k) => st.board.includes(k)).slice(0, 9);
-  const full = pick && picked.length >= 3 ? picked : st.board.slice(0, 9);
-  st.seats = s.mode === "quick" ? [...new Set(setup.quick_seats)].filter((k) => st.board.includes(k)).slice(0, 4) : full;
-  if (s.mode === "quick" && st.seats.length < 4) {
-    for (const k of full) if (st.seats.length < 4 && !st.seats.includes(k)) st.seats.push(k);
-  }
+  st.seats = selected.slice(0, 9);
   st.board = st.seats.slice(); // later Chair calls only see the seats at the table
   emit(s, "setup", { title: st.title, decision: st.decision, brief: st.brief, options: st.options, assumptions: st.assumptions, weights: st.weights, seats: st.seats, mode: s.mode });
 
@@ -403,7 +373,7 @@ async function run(s) {
   st.verdict = { ...v, recommended, scores: finalScores, spread: spreadF, confidence, support, votes, disclaimer: DISCLAIMER };
   emit(s, "verdict", { verdict: st.verdict, seats: verdictSeats(st, last) });
   s.status = "done";
-  emit(s, "usage", { usage: ai.usage });
+  emit(s, "usage", { usage: ai.councilUsage });
   for (const res of s.subs) res.write(`data: ${JSON.stringify({ type: "end" })}\n\n`);
   save(s);
 }
@@ -463,7 +433,7 @@ function verdictMarkdown(st) {
   const v = st.verdict;
   const opt = (id) => st.options.find((o) => o.id === id)?.label || id;
   const L = [];
-  L.push(`# Roast Room: ${st.title}`, "", `${new Date().toISOString().slice(0, 10)} · Seats: ${st.seats.map((k) => byKey[k].short).join(", ")} · Rounds: ${st.rounds.length} · Mode: ${st.mode}`, "");
+  L.push(`# Revalida: ${st.title}`, "", `${new Date().toISOString().slice(0, 10)} · Seats: ${st.seats.map((k) => byKey[k].short).join(", ")} · Rounds: ${st.rounds.length} · Mode: ${st.mode}`, "");
   L.push(`## Verdict: ${v.label} (Option ${v.recommended}: ${opt(v.recommended)})`, "", `**The call:** ${v.call}`, "");
   L.push(`Option scores: ${st.options.map((o) => `${o.id} ${v.scores[o.id]?.score ?? "-"}`).join(" · ")}${v.support != null ? ` · Support for the resolution ${v.support}/10` : ""} · Confidence ${v.confidence ?? "-"}/10 · Spread ${v.spread}`);
   if (v.override_note) L.push("", v.override_note);

@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Roast Room · AI Automation Society</title>
-  <link rel="icon" href="/brand/favicon-ais.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Revalida · Decision Council</title>
+  <link rel="icon" href="/brand/revalida-mark.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/chat.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <img class="brand-logo" src="/brand/ais-horizontal.svg" alt="AI Automation Society">
+      <img class="brand-logo" src="/brand/revalida-mark.png" alt="" aria-hidden="true">
       <span class="brand-rule" aria-hidden="true"></span>
-      <span class="brand-name">Roast Room</span>
+      <span class="brand-name">Revalida</span>
     </div>
     <ol class="stepper" id="stepper" aria-label="Council progress">
       <li data-step="setup">Brief</li>
@@ -27,6 +28,7 @@
     </ol>
     <div class="top-actions">
       <span class="usage" id="usage" title="Tokens used by this app since it started"></span>
+      <button class="ghost" id="chatBtn" type="button">Talk to them</button>
       <button class="ghost" id="guideBtn" type="button">How it works</button>
       <button class="ghost" id="historyBtn" type="button">Past sessions</button>
       <button class="ghost" id="newBtn" type="button" hidden>New question</button>
@@ -47,31 +49,102 @@
         <div class="wall" aria-hidden="true"></div>
         <div class="spot" id="spot" aria-hidden="true"></div>
         <div id="seats"></div>
-        <div class="table" id="table" aria-hidden="true"><img class="etch" src="/brand/ais-symbol.png" alt=""></div>
+        <div class="table" id="table" aria-hidden="true"><img class="etch" src="/brand/revalida-mark.png" alt=""></div>
         <div id="plates"></div>
         <svg class="links" id="links" aria-hidden="true"></svg>
 
         <div class="center" id="center">
           <div class="waiting" id="waiting" hidden>
             <span class="pulse"><i></i>The room is open</span>
-            <h2 data-type>Bring a decision to the Roast Room</h2>
-            <p>In Claude Code, type the line below with your decision. The council shows up here and argues it out live.</p>
-            <code>/roast-room should I ...</code>
+            <h2 data-type>Bring a decision to Revalida</h2>
+            <p>This room is in viewer mode. Start a council from the web composer by setting <code>COUNCIL_RUNNER=api</code> in <code>.env</code>, or use this room to watch saved councils.</p>
             <div class="row"><button class="ghost" type="button" id="waitGuide">What to put in your question</button><button class="ghost" type="button" id="waitHistory">Watch a past council</button></div>
           </div>
 
           <form class="composer" id="composer" hidden>
             <h2 data-type>What decision do you need help with?</h2>
-            <textarea id="prompt" rows="3" placeholder="Give them the decision, your options, a few numbers (revenue, cash, team), and which way you're leaning." required minlength="10"></textarea>
+            <label class="field-label" for="prompt">Decision and options <span>What are you choosing between?</span></label>
+            <textarea id="prompt" rows="2" placeholder="Should I raise my coaching price to $3,500 for everyone, new clients only, or keep $2,000?" required minlength="10"></textarea>
+            <div class="composer-context">
+              <label class="field-label" for="success">Success and deadline <span>What should be true, and by when?</span></label>
+              <input id="success" type="text" placeholder="Reach $45k/month by March 2027">
+              <label class="field-label" for="lean">Your current lean <span>What are you leaning toward, and why?</span></label>
+              <input id="lean" type="text" placeholder="Raise for everyone because I feel underpaid">
+            </div>
+            <details class="composer-more">
+              <summary>Add business context <span>numbers, cash, capacity, limits, or contract terms</span></summary>
+              <div class="composer-context">
+                <label class="field-label" for="context">What should the council know?</label>
+                <textarea id="context" rows="2" placeholder="Revenue, clients, close rate, cash, costs, team size, available hours..."></textarea>
+                <label class="field-label" for="constraints">Limits or unknowns</label>
+                <textarea id="constraints" rows="2" placeholder="Budget, client contracts, renewal dates, delivery capacity, or details you don't know yet..."></textarea>
+              </div>
+            </details>
             <div class="samples" id="samples"></div>
             <div class="composer-row">
-              <div class="mode" role="radiogroup" aria-label="Council size">
-                <label><input type="radio" name="mode" value="full" checked><span>Full council <small>7 seats, 3 rounds</small></span></label>
-                <label><input type="radio" name="mode" value="quick"><span>Quick <small>4 seats, 2 rounds</small></span></label>
-              </div>
-              <button class="convene" type="submit" id="convene">Convene the council</button>
+              <span class="composer-note">The Chair reviews first; nothing starts until you confirm. One AI sequence per public IP each UTC day. Unfinished drafts stay in this browser.</span>
+              <button class="convene" type="submit" id="convene">Review with the Chair</button>
             </div>
           </form>
+
+          <section class="resume-notice" id="resumeNotice" hidden>
+            <span class="pulse"><i></i>Web council in progress</span>
+            <h2>Would you like to rejoin?</h2>
+            <p id="resumeTitle"></p>
+            <div class="review-actions">
+              <button class="ghost" type="button" id="dismissResume">Not now</button>
+              <button class="pill" type="button" id="resumeCouncil">Resume live playback</button>
+            </div>
+          </section>
+
+          <section class="daily-limit-notice" id="dailyLimitNotice" hidden role="status">
+            <span class="pulse"><i></i>Daily access</span>
+            <h2 id="dailyLimitTitle">One sequence per network each day</h2>
+            <p id="dailyLimitMessage"></p>
+          </section>
+
+          <section class="intake-review" id="intakeReview" hidden aria-live="polite">
+            <span class="pulse"><i></i>Before the council</span>
+            <h2 id="intakeTitle">A few details first</h2>
+            <p class="review-note" id="intakeNote"></p>
+            <div class="intake-thinking" id="intakeThinking" role="status" aria-live="polite" hidden>
+              <span class="thinking-orbit" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="thinking-copy"><b>The Chair is thinking</b><small>Checking which facts could change this decision</small></span>
+              <span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
+            <form id="clarificationForm">
+              <div class="followups" id="followupFields"></div>
+              <div class="review-actions" id="questionActions">
+                <button class="pill" type="submit" id="answerBtn">Send answers</button>
+              </div>
+            </form>
+            <button class="ghost review-back" id="intakeBack" type="button" data-back-to-brief>Back to my brief</button>
+          </section>
+
+          <section class="approval" id="approval" hidden>
+            <span class="pulse"><i></i>Review before starting</span>
+            <h2 id="approvalTitle"></h2>
+            <p class="review-note" id="approvalNote"></p>
+            <div class="approval-body">
+              <div><h3>Decision brief</h3><p id="approvedBrief"></p></div>
+              <div><h3>Options</h3><ol id="approvedOptions"></ol></div>
+              <div><h3>Remaining uncertainties</h3><ul id="approvedAssumptions"></ul></div>
+            </div>
+            <div class="approval-board">
+              <h3>Who should be in the room?</h3>
+              <p>Confirm the Chair's recommendations or change the seats. The council will not start until you do.</p>
+              <div class="mode" id="modeChoices" role="radiogroup" aria-label="Council format">
+                <label><input type="radio" name="mode" value="full" checked><span>Full council <small>5–7 recommended, 3 rounds</small></span></label>
+                <label><input type="radio" name="mode" value="quick"><span>Quick <small>4 seats, 2 rounds</small></span></label>
+              </div>
+              <fieldset id="advisorChoices" aria-label="Confirm council advisors"></fieldset>
+              <small class="board-hint">Full: choose 3–9 advisors. Quick: choose exactly 4.</small>
+            </div>
+            <div class="review-actions">
+              <button class="ghost" type="button" id="editBrief">Back to my brief</button>
+              <button class="convene" type="button" id="startCouncil">Confirm and start council</button>
+            </div>
+          </section>
 
           <div class="caption" id="caption" hidden>
             <div class="cap-head">
@@ -89,7 +162,7 @@
             <p class="wc-sub" id="wcSub"></p>
             <p class="wc-muse" id="wcMuse"></p>
             <div class="wc-bar"><i id="wcBar"></i></div>
-            <p class="wc-nudge" id="wcNudge" hidden>Nothing new for a while? Check Claude Code. It may be waiting for you to answer or approve something.</p>
+            <p class="wc-nudge" id="wcNudge" hidden>The council is taking longer than usual. Check the server terminal and OpenAI API status.</p>
           </div>
 
           <div class="cruxes" id="cruxes" hidden></div>
@@ -125,9 +198,14 @@
     <form method="dialog"><button class="ghost">Close</button></form>
   </dialog>
 
-  <dialog id="guideDialog" class="card-dialog">
-    <div id="guideBody"></div>
-    <form method="dialog"><button class="ghost">Close</button></form>
+  <dialog id="guideDialog" class="tour-dialog" aria-labelledby="tourTitle">
+    <div class="tour-body" id="guideBody"></div>
+    <div class="tour-footer">
+      <button class="ghost tour-prev" id="guidePrev" type="button">Back</button>
+      <div class="tour-dots" id="guideDots" role="group" aria-label="Tour progress"></div>
+      <button class="pill tour-next" id="guideNext" type="button">Next</button>
+    </div>
+    <form method="dialog" class="tour-close"><button class="ghost" type="submit">Close tour</button></form>
   </dialog>
 
   <dialog id="historyDialog" class="card-dialog">
@@ -137,9 +215,42 @@
     <form method="dialog"><button class="ghost">Close</button></form>
   </dialog>
 
+  <section class="chat-page" id="chatPage" hidden aria-label="Talk to an advisor">
+    <div class="chat-rail">
+      <div class="chat-rail-head">
+        <h3>Talk to them</h3>
+        <p>Pick an advisor. Each one answers from the same brain the council uses.</p>
+      </div>
+      <input class="chat-search" id="chatSearch" type="search" placeholder="Search advisors" autocomplete="off">
+      <ul class="chat-people" id="chatPeople"></ul>
+    </div>
+    <div class="chat-main">
+      <div class="chat-top">
+        <div class="chat-active" id="chatActive"></div>
+        <button class="ghost" id="chatClear" type="button">Clear chat</button>
+        <button class="ghost" id="chatClose" type="button">Back to the room</button>
+      </div>
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-inner" id="chatInner"></div>
+        <div class="chat-error" id="chatError" hidden></div>
+        <div class="msg assistant" id="chatTyping" hidden>
+          <div class="msg-body"><span class="msg-typing"><i></i><i></i><i></i></span></div>
+        </div>
+      </div>
+      <form class="chat-composer" id="chatForm" hidden>
+        <div class="chat-composer-row">
+          <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask them something..."></textarea>
+          <button class="chat-send" id="chatSend" type="submit">Send</button>
+        </div>
+        <div class="chat-note" id="chatNote"></div>
+      </form>
+    </div>
+  </section>
+
   <div class="toast" id="toast" hidden></div>
   <p class="disclaimer">Simulated advisors built from each person's public work and drawn as caricatures. They are not the people and do not speak for them.</p>
 
   <script src="/app.js" type="module"></script>
+  <script src="/chat.js" type="module"></script>
 </body>
 </html>

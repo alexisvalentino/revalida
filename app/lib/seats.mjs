@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { AGENTS_DIR, BRAINS_DIR, ROSTER } from "./env.mjs";
 
-// Every seat lives in the skill's roster.json (the /newroaster skill adds to it). SEATS and
+// Every seat lives in the skill's roster.json (the advisor-builder workflow adds to it). SEATS and
 // byKey are filled in place, so a seat added while the room is running shows up on the next
 // read without a restart.
 export const SEATS = [];
@@ -14,7 +14,11 @@ export function loadRoster() {
   try { stat = fs.statSync(ROSTER); } catch { throw new Error(`roster not found at ${ROSTER}`); }
   if (stat.mtimeMs === rosterStamp && SEATS.length) return SEATS;
   const r = JSON.parse(fs.readFileSync(ROSTER, "utf8"));
-  const seats = (r.seats || []).filter((s) => s.key && s.slug && fs.existsSync(path.join(AGENTS_DIR, `council-${s.key}.md`)));
+  const agentFile = (key) => {
+    const file = path.join(AGENTS_DIR, `council-${key}.md`);
+    return fs.existsSync(file) ? file : null;
+  };
+  const seats = (r.seats || []).filter((s) => s.key && s.slug && agentFile(s.key));
   SEATS.splice(0, SEATS.length, ...seats);
   for (const k of Object.keys(byKey)) delete byKey[k];
   for (const s of SEATS) byKey[s.key] = s;
@@ -37,13 +41,19 @@ const systemCache = new Map();
 export function systemFor(key) {
   if (systemCache.has(key)) return systemCache.get(key);
   const s = byKey[key];
-  const agent = stripFront(read(path.join(AGENTS_DIR, `council-${key}.md`)));
-  const brain = ["_hot.md", "frameworks.md", "positions.md", "principles.md", "voice.md"]
+  // The web runtime loads prompt text from the shared roster assets; it does not launch external agents.
+  const agentFile = path.join(AGENTS_DIR, `council-${key}.md`);
+  const agent = fs.existsSync(agentFile) ? stripFront(read(agentFile)) : "";
+  // Core memory, plus optional extras for seats that have them. A market pack is
+  // external data, not the person's words, so it is labeled as such in the prompt.
+  const core = ["_hot.md", "frameworks.md", "positions.md", "principles.md", "voice.md"];
+  const extra = ["market.md"].filter((f) => fs.existsSync(path.join(BRAINS_DIR, s.slug, f)));
+  const brain = [...core, ...extra]
     .map((f) => `\n\n===== brains/${s.slug}/${f} =====\n` + read(path.join(BRAINS_DIR, s.slug, f)))
     .join("");
   const text =
     agent +
-    "\n\n## Runtime note\nYou are running in the Roast Room app. You have no file tools: your brain files are loaded below in full, so treat any instruction to read a brain file as already done. Never mention files, tools, or this note in your answer.\n" +
+    "\n\n## Runtime note\nYou are running in the Revalida web app. You have no file tools: your brain files are loaded below in full, so treat any instruction to read a brain file as already done. Never mention files, tools, or this note in your answer.\n" +
     brain;
   const system = [{ type: "text", text, cache_control: { type: "ephemeral" } }];
   systemCache.set(key, system);

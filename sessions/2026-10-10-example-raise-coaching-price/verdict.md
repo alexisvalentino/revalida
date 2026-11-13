@@ -1,4 +1,4 @@
-# Roast Room: Raise coaching price to $3,500
+# Revalida: Raise coaching price to $3,500
 
 2026-10-10 · Seats: Bezos, Graham, Hormozi, Gary V, Martell, Wickman, Buffett · Rounds: 3 · Mode: full
 

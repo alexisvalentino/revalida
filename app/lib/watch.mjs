@@ -1,8 +1,8 @@
-// Viewer mode: /roast-room runs in Claude Code and writes its session folder as it
-// goes. This watches the sessions folder and turns those files into the same events the
-// API runner emits, so the room plays a Claude Code council live without calling any API.
+// Optional viewer mode: an external Revalida-compatible runner writes the session folder as it goes.
+// This watches those files and turns them into the same events the API runner emits, so the
+// room can replay external councils without making API calls itself.
 //
-// Files the Chair writes, in order (spec: .claude/skills/roast-room/references/live-room.md):
+// Files the Chair writes, in order (spec: .claude/skills/revalida/references/live-room.md):
 //   council.json  -> setup        round-1.md -> Round 1 cards   cruxes.json -> fault lines
 //   round-2.md    -> debate cards  draft.json -> proposal       round-3.md  -> votes
 //   verdict.json  -> the verdict
@@ -69,7 +69,7 @@ function normalizeSetup(c) {
   const seats = (c.seats || []).map(seatKey).filter(Boolean);
   const mode = c.mode === "quick" ? "quick" : "full";
   return {
-    title: c.title || "Roast Room", decision: c.decision || "", brief: c.brief || "", mode,
+    title: c.title || "Revalida", decision: c.decision || "", brief: c.brief || "", mode,
     options, assumptions: c.assumptions || [], weights,
     seats: seats.length ? [...new Set(seats)] : defaultBoard(),
   };

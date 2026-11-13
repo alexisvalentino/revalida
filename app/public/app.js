@@ -13,51 +13,39 @@ const SAMPLES = [
 
 const EXAMPLE = "I run a coaching business at $30k a month with 15 clients at $2,000 each. Should I raise to $3,500 for everyone, raise for new clients only, or keep $2,000? Close rate is about 50% and I have $40k in the bank. Success is $45k a month by March. I'm leaning toward raising for everyone because I'm underpaid.";
 
-// The how-to, shown in the side panel while the room is empty and in "How it works".
-const GUIDE = `
-  <div class="guide">
-    <div class="guide-sec">
-      <h4>How to use the Roast Room</h4>
-      <ol>
-        <li><span>Open Claude Code in this folder.</span></li>
-        <li><span>Type <code>/roast-room</code> and your decision.</span></li>
-        <li><span>Pick your advisors (the Chair recommends a board) and answer its questions. Then watch the council argue it out here.</span></li>
-        <li><span>When the verdict lands, download it as a PDF.</span></li>
-      </ol>
-    </div>
-    <div class="guide-sec">
-      <h4>What to put in your question</h4>
-      <ul>
-        <li><span><b>The decision</b> in one line.</span></li>
-        <li><span><b>Your options.</b> Two or three. "Keep doing what I do now" counts.</span></li>
-        <li><span><b>Your numbers.</b> Revenue, cash, and team size.</span></li>
-        <li><span><b>Your limits.</b> Deadline, hours, and budget.</span></li>
-        <li><span><b>What success looks like</b>, and by when.</span></li>
-        <li><span><b>Which way you're leaning</b>, and why. The council tests it.</span></li>
-      </ul>
-      <p class="note" style="margin-top:8px">Left something out? The Chair asks before the council starts.</p>
-    </div>
-    <div class="guide-sec">
-      <h4>Example</h4>
-      <div class="example">
-        <p><code>/roast-room</code> ${EXAMPLE.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>
-        <button class="ghost" type="button" data-copy-example>Copy this example</button>
-      </div>
-    </div>
-    <div class="guide-sec">
-      <h4>Good to know</h4>
-      <ul>
-        <li><span><b>Pick your council:</b> the Chair recommends the advisors that fit your question and asks you to confirm. Add or drop anyone.</span></li>
-        <li><span><b>Full council:</b> 5 to 7 advisors, 3 rounds. For big calls that are hard to undo.</span></li>
-        <li><span><b>Quick:</b> add <code>--quick</code> for 4 advisors and 2 rounds. Uses far less of your plan.</span></li>
-        <li><span><b>Every council is saved.</b> Open Past sessions to replay one or download its PDF.</span></li>
-        <li><span><b>Add an advisor:</b> type <code>/newroaster</code> and a name. Change your default board with <code>/roast-room board</code>.</span></li>
-      </ul>
-    </div>
-  </div>`;
+const TOUR = [
+  {
+    eyebrow: "A decision council",
+    title: "Not an idea validator.",
+    copy: "Revalida helps you evaluate a real decision—not simply cheer on an idea. It compares your options, tests the risks, and makes room for disagreement before offering a recommendation.",
+    points: ["A clear recommendation, with reasons", "Trade-offs and downside made visible", "A dissenting view, not just reassurance"],
+  },
+  {
+    eyebrow: "Start with your situation",
+    title: "Bring the facts that change the call.",
+    copy: "Describe the choice and the options you would genuinely take. Add your goal, deadline, current lean, and the business numbers or constraints that matter.",
+    points: ["Revenue, costs, cash, capacity, or conversion", "What success means—and by when", "Flag what you do not know; do not guess"],
+    example: true,
+  },
+  {
+    eyebrow: "A useful clarification, not a questionnaire",
+    title: "The Chair asks only what matters.",
+    copy: "Before any debate, the Chair checks what could change the recommendation. You may get a short follow-up, then review the brief and advisor board. The council waits for your confirmation.",
+    points: ["Answer with a fact, estimate, or a clear unknown", "Review the brief and options", "Confirm the board before the council starts"],
+  },
+  {
+    eyebrow: "From debate to a decision",
+    title: "See the reasoning, then keep the record.",
+    copy: "Simulated advisors examine the choice from different disciplines. Follow the live debate, read the scored verdict and dissent, talk to a seat separately, or return to a saved report later.",
+    points: ["Full council or a faster four-seat review", "Past sessions and downloadable PDF reports", "Advisor chat for a focused second look"],
+  },
+];
+
+const IDLE_GUIDE = `<div class="guide-intro"><span>REVALIDA · DECISION COUNCIL</span><h3>Evaluate the decision, not just the idea.</h3><p>Bring the options and context. The Chair clarifies what could change the call; a simulated advisor council then tests the trade-offs and returns a reasoned verdict.</p><button class="ghost" type="button" data-open-tour>Take the short tour</button></div>`;
+const DAILY_KEY = "revalida-daily-sequence-v1";
 
 const SHAPES = ["base", "open", "mid", "blink"];
-// A seat's cartoon frames live in /portraits/<key>-<shape>.webp (or .png, .jpg). A seat added with /newroaster
+// A seat's cartoon frames live in /portraits/<key>-<shape>.webp (or .png, .jpg). A seat added with /advisor-builder
 // may have only a base frame, or none: missing frames fall back to the base frame, then to a
 // drawn bust in the seat's color whose mouth and eyes still move.
 const portrait = (key, shape = "base") => {
@@ -94,14 +82,89 @@ const ROUND_NAME = ["", "Opening", "Debate", "Vote"];
 
 const state = {
   seats: [], byKey: {}, board: [], table: [], session: null, options: [], weights: {}, active: [], round: 0,
-  cards: { 1: {}, 2: {}, 3: {} }, replaying: false, verdict: null, links: [], geo: {}, setup: null, wait: null,
+  cards: { 1: {}, 2: {}, 3: {} }, replaying: false, verdict: null, links: [], geo: {}, setup: null, wait: null, intake: null, resumable: null,
 };
+let tourIndex = 0;
+let tourPointer = null;
+const daily = { sequenceId: null, state: "none", locked: false, started: false, resetAt: null };
+
+function readDailyState() {
+  try { return JSON.parse(localStorage.getItem(DAILY_KEY) || "null"); }
+  catch { return null; }
+}
+
+function sequenceId() {
+  if (daily.sequenceId) return daily.sequenceId;
+  const saved = readDailyState();
+  daily.sequenceId = saved?.sequenceId || crypto.randomUUID();
+  persistDailyState();
+  return daily.sequenceId;
+}
+
+function persistDailyState() {
+  const saved = readDailyState() || {};
+  const form = Object.fromEntries(["prompt", "success", "lean", "context", "constraints"].map((id) => [id, $("#" + id)?.value || ""]));
+  try {
+    localStorage.setItem(DAILY_KEY, JSON.stringify({
+      sequenceId: daily.sequenceId || saved.sequenceId || null,
+      form,
+      intake: state.intake || null,
+    }));
+  } catch { /* A local draft is a convenience, not a reason to interrupt the workflow. */ }
+}
+
+function showDailyLimit(status, completed = false) {
+  daily.locked = true;
+  daily.resetAt = status.resetAt;
+  $("#dailyLimitTitle").textContent = completed ? "Today's AI sequence is already used" : "A sequence is active on this network";
+  const reset = status.resetAt ? new Date(status.resetAt).toLocaleString(undefined, { timeZone: "UTC", dateStyle: "medium", timeStyle: "short" }) + " UTC" : "00:00 UTC";
+  $("#dailyLimitMessage").textContent = completed
+    ? `The council sequence has already started. Rejoin it if it is still running; another sequence is available after ${reset}. Past reports remain available.`
+    : `Continue on the browser that started the sequence. A new sequence is available after ${reset}.`;
+  $("#dailyLimitNotice").hidden = false;
+  $("#composer").hidden = true;
+  $("#intakeReview").hidden = true;
+  $("#approval").hidden = true;
+  $("#chatBtn").disabled = true;
+  $("#chatBtn").title = "This network has already used today's AI sequence.";
+}
+
+async function restoreDailySequence() {
+  const saved = readDailyState();
+  daily.sequenceId = saved?.sequenceId || null;
+  if (saved?.form) for (const [id, value] of Object.entries(saved.form)) if ($("#" + id)) $("#" + id).value = value;
+  if (saved?.intake) state.intake = saved.intake;
+
+  const status = await fetch("/api/sequence", { headers: { "x-revalida-sequence": daily.sequenceId || "" } }).then((response) => response.json());
+  daily.state = status.state || "none";
+  daily.resetAt = status.resetAt || null;
+  if (!status.allowed) {
+    showDailyLimit(status);
+    return status;
+  }
+  if (status.state === "started") {
+    daily.started = true;
+    $("#chatBtn").disabled = true;
+    $("#chatBtn").title = "The daily council sequence has already started.";
+  }
+  if (!daily.started && state.intake?.screen === "questions") {
+    showFollowups({ questions: state.intake.questions || [], note: state.intake.note || "Continue the same decision sequence." });
+    $$("#followupFields .followup-answer").forEach((field, i) => { field.value = state.intake.pendingAnswers?.[i] || ""; });
+  } else if (!daily.started && state.intake?.screen === "approval" && state.intake.intakeId && state.intake.setup) {
+    showApproval({ setup: state.intake.setup, note: state.intake.setup.note || "" });
+  } else if (!daily.started && (state.intake?.screen === "approval" || state.intake?.screen === "reviewing")) {
+    state.intake.screen = "reviewing";
+    await requestIntake();
+  }
+  persistDailyState();
+  return status;
+}
 
 // ------------------------------------------------------------- boot
 async function boot() {
   const r = await refreshSeats();
   state.runner = r.runner;
-  if (r.runner === "api" && !r.hasKey) toast("No ANTHROPIC_API_KEY found in .env. Add it and restart the server.");
+  if (r.runner === "api" && !r.hasKey) toast("No OPENAI_API_KEY found in .env. Add it and restart the server.");
   renderSeats(state.board);
   renderSamples();
   bindUI();
@@ -110,11 +173,22 @@ async function boot() {
   reset();
   typeIn($("#composer h2"));
   typeIn($("#waiting h2"));
-  const ss = await fetch("/api/sessions").then((x) => x.json());
-  if (ss.running) attach(ss.running);
-  else if (ss.live) attach(ss.live);
+  const access = await restoreDailySequence().catch((error) => { toast(error.message || "Could not check today's Revalida access."); return null; });
+  const sessions = await fetch("/api/sessions", { headers: { "x-revalida-sequence": daily.sequenceId || "" } }).then((x) => x.json()).catch(() => null);
+  if (sessions?.running) {
+    state.resumable = sessions.running;
+    const current = sessions.sessions.find((session) => session.id === sessions.running);
+    $("#resumeTitle").textContent = current?.title || "A saved web council";
+    $("#resumeNotice").hidden = false;
+    $("#composer").hidden = true;
+    $("#dailyLimitNotice").hidden = true;
+  } else if (access?.state === "started") {
+    showDailyLimit(access, true);
+  }
+  try {
+    if (localStorage.getItem("revalida-tour-seen") !== "yes") openGuide();
+  } catch { /* Keep the tour available from the header when storage is restricted. */ }
   refreshUsage();
-  setInterval(watchForLive, 2500);
   setInterval(tickWait, 1000);
 }
 
@@ -129,17 +203,7 @@ async function refreshSeats() {
   return r;
 }
 
-// a council started in Claude Code shows up here on its own
-const seenLive = new Set();
-async function watchForLive() {
-  const ss = await fetch("/api/sessions").then((x) => x.json()).catch(() => null);
-  const id = ss?.live || ss?.running;
-  if (!id || seenLive.has(id) || id === state.session) return;
-  seenLive.add(id);
-  attach(id);
-}
-
-// AIS arrival: a heading types in a character at a time, blur to sharp
+// Revalida arrival: a heading types in a character at a time, blur to sharp
 function typeIn(el) {
   if (!el) return;
   const text = el.textContent;
@@ -155,8 +219,19 @@ function renderSamples() {
   $("#samples").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     $("#prompt").value = SAMPLES[b.dataset.i][1];
+    persistDailyState();
     $("#prompt").focus();
   });
+}
+
+function renderAdvisorChoices(setup, mode) {
+  const recommended = mode === "quick" ? setup.quick_seats : setup.seats;
+  const selected = new Set(recommended);
+  const weights = Object.fromEntries((setup.weights || []).map((w) => [w.seat, w]));
+  $("#advisorChoices").innerHTML = state.seats.map((seat) => {
+    const w = weights[seat.key];
+    return `<label><input type="checkbox" value="${esc(seat.key)}" ${selected.has(seat.key) ? "checked" : ""}><span>${esc(seat.short)} <small>${w ? `Weight ${w.weight} · ${esc(w.reason)}` : esc(seat.pillar)}</small></span></label>`;
+  }).join("");
 }
 
 const MAX_TABLE = 9; // the most busts the table can seat and still read
@@ -175,7 +250,7 @@ function renderSeats(keys) {
     </div>`).join("");
   $("#plates").innerHTML = seats.map((s) => `
     <div class="nameplate" id="plate-${s.key}" data-seat="${s.key}">
-      <b>${esc(s.short === "Gary V" ? "Gary V" : s.name)}</b>
+      <b aria-label="${esc(s.name)}"><span class="plate-full">${esc(s.short === "Gary V" ? "Gary V" : s.name)}</span><span class="plate-short">${esc(s.short)}</span></b>
       <small>${esc(s.pillar)}</small>
       <div class="meta"><span class="pips" title="Weight on this decision"></span><span class="chip" hidden></span><span class="score" hidden></span></div>
     </div>`).join("");
@@ -189,21 +264,28 @@ function layoutStage() {
   const stage = $("#stage");
   const W = stage.clientWidth;
   const narrow = matchMedia("(max-width: 820px)").matches;
-  const H = narrow ? Math.round(W * 0.62) : stage.clientHeight;
+  const landscape = matchMedia("(max-width: 1000px) and (max-height: 520px)").matches;
+  const tablet = matchMedia("(max-width: 1100px)").matches;
+  const flow = narrow || landscape || tablet;
+  const H = narrow ? Math.round(W * 0.62) : flow ? Math.min(300, Math.round(W * 0.38)) : stage.clientHeight;
   const cx = W / 2, cy = H * (narrow ? 0.98 : 0.9), rx = W * 0.48, ry = H * (narrow ? 0.46 : 0.42);
   const t = $("#table");
   Object.assign(t.style, { left: `${cx - rx}px`, top: `${cy - ry}px`, width: `${rx * 2}px`, height: `${ry * 2}px` });
   const edge = (x) => cy - ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2));
   // seats spread evenly along the far edge; past seven they shrink to fit
   const n = state.table.length;
-  const xs = n === 1 ? [0.5] : state.table.map((_, i) => 0.085 + (0.83 * i) / (n - 1));
+  const xs = n === 1 ? [0.5] : state.table.map((_, i) => narrow ? 0.16 + (0.68 * i) / (n - 1) : 0.085 + (0.83 * i) / (n - 1));
   const fit = Math.min(1, 6 / Math.max(1, n - 1));
   state.geo = {};
   state.table.forEach((k, i) => {
     const s = state.byKey[k];
     const x = W * xs[i];
     const d = ((x - cx) / rx) ** 2;
-    const size = H * (narrow ? 0.5 + 0.08 * d : 0.37 + 0.07 * d) * fit;
+    // On desktop the stage can stretch to match the taller side panel, so cap
+    // busts against its width as well as its height to preserve the scene scale.
+    const size = (narrow
+      ? H * (0.45 + 0.08 * d)
+      : Math.min(H * (0.37 + 0.07 * d), W * (0.24 + 0.04 * d))) * fit;
     const bottom = edge(x) + size * 0.2;
     const el = $(`#seat-${s.key}`);
     Object.assign(el.style, { left: `${x - size / 2}px`, top: `${bottom - size}px`, width: `${size}px`, height: `${size}px`, zIndex: 10 + Math.round(d * 10) });
@@ -213,8 +295,8 @@ function layoutStage() {
     state.geo[s.key] = { x, head: bottom - size * 0.72, top: bottom - size * 0.9, size };
   });
   const c = $("#center");
-  if (narrow) {
-    stage.style.paddingTop = `${H}px`; // the scene sits on top; captions flow below it
+  if (flow) {
+    stage.style.paddingTop = `${Math.ceil(H * 1.44)}px`; // reserve the full table depth before content flows below it
   } else {
     stage.style.paddingTop = "";
     // the captions start below the lowest nameplate they could collide with
@@ -235,18 +317,243 @@ function moveSpot(key) {
   spot.classList.add("on");
 }
 
+function founderInput() {
+  return [
+    `DECISION AND OPTIONS\n${$("#prompt").value.trim()}`,
+    $("#success").value.trim() && `SUCCESS AND DEADLINE\n${$("#success").value.trim()}`,
+    $("#lean").value.trim() && `FOUNDER'S CURRENT LEAN\n${$("#lean").value.trim()}`,
+    $("#context").value.trim() && `BUSINESS CONTEXT\n${$("#context").value.trim()}`,
+    $("#constraints").value.trim() && `CONSTRAINTS AND UNKNOWNS\n${$("#constraints").value.trim()}`,
+  ].filter(Boolean).join("\n\n");
+}
+
+async function requestIntake() {
+  const input = state.intake?.input || founderInput();
+  if (input.length < 10) return toast("Give the Chair a real decision and options first.");
+  const wasAnswering = !$("#intakeReview").hidden;
+  const answerCountBeforeRequest = state.intake?.answers.length || 0;
+  daily.sequenceId = state.intake?.sequenceId || sequenceId();
+  if (state.intake) state.intake.sequenceId = daily.sequenceId;
+  if (state.intake) state.intake.screen = "reviewing";
+  persistDailyState();
+  const buttons = [$("#convene"), $("#answerBtn")].filter(Boolean);
+  buttons.forEach((button) => { button.disabled = true; });
+  const oldLabel = $("#convene").textContent;
+  $("#convene").textContent = "Reviewing your decision…";
+  showIntakeThinking(wasAnswering);
+  try {
+    const response = await fetch("/api/intake", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ input, answers: state.intake?.answers || [], sequenceId: daily.sequenceId }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw Object.assign(new Error(payload.error || "The Chair could not review this decision."), { status: response.status, resetAt: payload.resetAt, state: payload.state });
+    if (payload.sequenceId) daily.sequenceId = payload.sequenceId;
+    state.intake ||= { input, answers: [], mode: "full" };
+    state.intake.input = input;
+    if (payload.review.ready) {
+      state.intake.setup = payload.review.setup;
+      state.intake.intakeId = payload.intakeId;
+      if (!state.intake.intakeId) throw new Error("The review is ready, but its confirmation expired. Please review it again.");
+      showApproval(payload.review);
+    } else {
+      state.intake.intakeId = null;
+      state.intake.setup = null;
+      showFollowups(payload.review);
+    }
+    $("#composer").hidden = true;
+  } catch (error) {
+    toast(error.message || String(error));
+    if (error.status === 429) {
+      showDailyLimit({ resetAt: error.resetAt, state: error.state });
+      return;
+    }
+    $("#intakeThinking").hidden = true;
+    $("#intakeReview").removeAttribute("aria-busy");
+    if (wasAnswering) {
+      state.intake.answers.splice(answerCountBeforeRequest);
+      $("#intakeTitle").textContent = "A few details before we convene";
+      $("#intakeNote").textContent = "The review did not come through. Your answers are still here; try sending them again.";
+      $("#followupFields").hidden = false;
+      $("#questionActions").hidden = false;
+      $("#intakeBack").hidden = false;
+      state.intake.screen = "questions";
+      state.intake.pendingAnswers = $$("#followupFields .followup-answer").map((field) => field.value);
+    } else {
+      $("#intakeReview").hidden = true;
+      $("#composer").hidden = false;
+      state.intake = null;
+    }
+    persistDailyState();
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+    $("#convene").textContent = oldLabel;
+  }
+}
+
+function showIntakeThinking(afterAnswers) {
+  $("#composer").hidden = true;
+  $("#approval").hidden = true;
+  $("#intakeReview").hidden = false;
+  $("#intakeReview").setAttribute("aria-busy", "true");
+  $("#intakeTitle").textContent = afterAnswers ? "Rechecking the decision" : "Reviewing the decision";
+  $("#intakeNote").textContent = afterAnswers ? "The Chair is using your answers to close only the remaining decision-critical gaps." : "The Chair is identifying which facts could change the recommendation.";
+  $("#followupFields").hidden = true;
+  $("#questionActions").hidden = true;
+  $("#intakeBack").hidden = true;
+  $("#intakeThinking").hidden = false;
+}
+
+function showFollowups(review) {
+  $("#approval").hidden = true;
+  $("#composer").hidden = true;
+  $("#intakeReview").hidden = false;
+  $("#intakeReview").removeAttribute("aria-busy");
+  $("#intakeThinking").hidden = true;
+  $("#followupFields").hidden = false;
+  $("#questionActions").hidden = false;
+  $("#intakeBack").hidden = false;
+  $("#intakeTitle").textContent = "A few details before we convene";
+  $("#intakeNote").textContent = review.note || "These answers may change the recommendation or its risks.";
+  if (state.intake) {
+    state.intake.screen = "questions";
+    state.intake.questions = review.questions;
+    state.intake.note = review.note || "";
+  }
+  $("#followupFields").innerHTML = review.questions.map((question, i) => `
+    <div class="followup">
+      <label class="question-label" for="followup-${i}">${esc(question)}</label>
+      <textarea class="followup-answer" id="followup-${i}" rows="2" required placeholder="Give a figure or estimate, or explain what is unknown"></textarea>
+    </div>`).join("");
+  $$("#followupFields .followup-answer").forEach((field, i) => { field.value = state.intake?.pendingAnswers?.[i] || ""; });
+  persistDailyState();
+  $("#intakeReview").scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function showApproval(review) {
+  const setup = review.setup;
+  if (state.intake) {
+    state.intake.screen = "approval";
+    state.intake.setup = setup;
+  }
+  $("#intakeReview").hidden = true;
+  $("#intakeReview").removeAttribute("aria-busy");
+  $("#approval").hidden = false;
+  $("#approvalTitle").textContent = `Review: ${setup.title}`;
+  $("#approvalNote").textContent = review.note || "Check this summary and the advisor board. The council will only start after you confirm.";
+  $("#approvedBrief").textContent = setup.brief;
+  $("#approvedOptions").innerHTML = setup.options.map((option) => `<li><b>${esc(option.id)}.</b> ${esc(option.label)}</li>`).join("");
+  $("#approvedAssumptions").innerHTML = setup.assumptions.length
+    ? setup.assumptions.map((assumption) => `<li>${esc(assumption)}</li>`).join("")
+     : "<li>No material unknowns left open.</li>";
+  state.intake.mode = state.intake.mode === "quick" ? "quick" : "full";
+  $("input[name='mode'][value='full']").checked = state.intake.mode === "full";
+  $("input[name='mode'][value='quick']").checked = state.intake.mode === "quick";
+  renderAdvisorChoices(setup, state.intake.mode);
+  if (Array.isArray(state.intake.selectedSeats)) {
+    const selected = new Set(state.intake.selectedSeats);
+    $$("#advisorChoices input").forEach((input) => { input.checked = selected.has(input.value); });
+  }
+  $("#composer").hidden = true;
+  $("#intakeReview").hidden = true;
+  $("#approval").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  persistDailyState();
+}
+
+function editBrief() {
+  state.intake = null;
+  $("#approval").hidden = true;
+  $("#intakeReview").hidden = true;
+  $("#composer").hidden = false;
+  $("#prompt").focus();
+  persistDailyState();
+}
+
+async function startApprovedCouncil() {
+  const mode = $("input[name='mode']:checked").value;
+  const seats = $$("#advisorChoices input:checked").map((input) => input.value);
+  if (mode === "quick" && seats.length !== 4) return toast("Quick council needs exactly four advisors.");
+  if (mode === "full" && (seats.length < 3 || seats.length > 9)) return toast("Choose 3–9 advisors for a full council.");
+  if (!state.intake?.intakeId) return toast("Review your decision with the Chair before starting.");
+  const button = $("#startCouncil");
+  button.disabled = true;
+  button.textContent = "Starting the confirmed council…";
+  try {
+    const response = await fetch("/api/council", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ intakeId: state.intake.intakeId, mode, seats, sequenceId: sequenceId() }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (response.status === 429) {
+        showDailyLimit({ resetAt: payload.resetAt, state: payload.state }, payload.state === "started");
+        return;
+      }
+      if (response.status === 409 && /expired|already used/i.test(payload.error || "")) {
+        toast("The review expired. The Chair is refreshing it within the same daily sequence.");
+        state.intake.intakeId = null;
+        await requestIntake();
+        return;
+      }
+      throw new Error(payload.error || "Could not start the council.");
+    }
+    daily.started = true;
+    daily.state = "started";
+    $("#chatBtn").disabled = true;
+    $("#chatBtn").title = "The daily council sequence has already started.";
+    if (state.intake) state.intake.screen = "started";
+    persistDailyState();
+    attach(payload.id);
+  } catch (error) {
+    toast(error.message || String(error));
+  } finally {
+    button.disabled = false;
+    button.textContent = "Confirm and start council";
+  }
+}
+
 function bindUI() {
   $("#composer").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const prompt = $("#prompt").value.trim();
-    if (prompt.length < 10) return toast("Give the council a real decision, at least a sentence.");
-    const mode = $('input[name="mode"]:checked').value;
-    $("#convene").disabled = true;
-    const r = await fetch("/api/council", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, mode }) });
-    const j = await r.json();
-    $("#convene").disabled = false;
-    if (!r.ok) return toast(j.error || "Could not start the council.");
-    attach(j.id);
+    const input = founderInput();
+    if (input.length < 10) return toast("Give the Chair a real decision and options first.");
+    state.intake = { input, answers: [], pendingAnswers: [], mode: "full", intakeId: null, setup: null, sequenceId: sequenceId(), screen: "reviewing" };
+    persistDailyState();
+    await requestIntake();
+  });
+  $("#composer").addEventListener("input", persistDailyState);
+  $("#clarificationForm").addEventListener("input", () => {
+    if (state.intake) state.intake.pendingAnswers = $$("#followupFields .followup-answer").map((field) => field.value);
+    persistDailyState();
+  });
+  $("#clarificationForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const next = $$("#followupFields .followup").map((row) => ({
+      question: $(".question-label", row).textContent,
+      answer: $(".followup-answer", row).value.trim(),
+    }));
+    if (next.some((item) => !item.answer)) return toast("Answer each question with a fact, estimate, or a clear explanation of what is unknown.");
+    state.intake.answers.push(...next);
+    state.intake.pendingAnswers = [];
+    state.intake.screen = "reviewing";
+    persistDailyState();
+    await requestIntake();
+  });
+  $("#startCouncil").addEventListener("click", startApprovedCouncil);
+  $$("[data-back-to-brief]").forEach((button) => button.addEventListener("click", editBrief));
+  $("#editBrief").addEventListener("click", editBrief);
+  $$("#modeChoices input").forEach((radio) => radio.addEventListener("change", () => {
+    if (!radio.checked || !state.intake?.setup) return;
+    state.intake.mode = radio.value;
+    state.intake.selectedSeats = null;
+    renderAdvisorChoices(state.intake.setup, radio.value);
+    persistDailyState();
+  }));
+  $("#advisorChoices").addEventListener("change", () => {
+    if (state.intake) state.intake.selectedSeats = $$("#advisorChoices input:checked").map((input) => input.value);
+    persistDailyState();
   });
   const openFrom = (e) => { const b = e.target.closest("[data-seat]"); if (b) openCard(b.dataset.seat); };
   $("#seats").addEventListener("click", openFrom);
@@ -256,17 +563,50 @@ function bindUI() {
   $("#waitHistory").addEventListener("click", openHistory);
   $("#waitGuide").addEventListener("click", openGuide);
   $("#guideBtn").addEventListener("click", openGuide);
+  $("#guidePrev").addEventListener("click", () => showTourSlide(tourIndex - 1));
+  $("#guideNext").addEventListener("click", () => {
+    if (tourIndex === TOUR.length - 1) $("#guideDialog").close();
+    else showTourSlide(tourIndex + 1);
+  });
+  $("#guideDots").addEventListener("click", (e) => {
+    const dot = e.target.closest("[data-tour-index]");
+    if (dot) showTourSlide(Number(dot.dataset.tourIndex));
+  });
+  $("#guideBody").addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch") tourPointer = { x: e.clientX, y: e.clientY };
+  });
+  $("#guideBody").addEventListener("pointerup", (e) => {
+    if (!tourPointer) return;
+    const dx = e.clientX - tourPointer.x;
+    const dy = e.clientY - tourPointer.y;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.25) showTourSlide(tourIndex + (dx < 0 ? 1 : -1));
+    tourPointer = null;
+  });
+  $("#guideDialog").addEventListener("close", () => {
+    try { localStorage.setItem("revalida-tour-seen", "yes"); } catch { /* Optional first-visit preference. */ }
+  });
   document.addEventListener("click", async (e) => {
-    if (e.target.closest("[data-copy-example]")) {
-      try { await navigator.clipboard.writeText("/roast-room " + EXAMPLE); toast("Copied. Paste it into Claude Code."); }
-      catch { toast("Copy didn't work here. Select the text and copy it."); }
+    if (e.target.closest("[data-open-tour]")) openGuide();
+    if (e.target.closest("[data-use-example]")) {
+      $("#prompt").value = EXAMPLE;
+      persistDailyState();
+      if ($("#guideDialog").open) $("#guideDialog").close();
+      $("#prompt").focus();
+      toast("Example added to the web form. Adjust it before convening.");
     }
     if (e.target.closest("[data-pdf]")) savePdf(e.target.closest("[data-pdf]"));
   });
   $("#historyBtn").addEventListener("click", openHistory);
   $("#newBtn").addEventListener("click", reset);
+  $("#resumeCouncil").addEventListener("click", () => { if (state.resumable) attach(state.resumable); });
+  $("#dismissResume").addEventListener("click", () => { state.resumable = null; $("#resumeNotice").hidden = true; $("#composer").hidden = state.runner !== "api" || daily.started || daily.locked; if (daily.started) showDailyLimit({ resetAt: daily.resetAt }, true); });
   $("#verdictSheet").addEventListener("click", (e) => { if (e.target.id === "verdictSheet" || e.target.closest("[data-close]")) $("#verdictSheet").hidden = true; });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#verdictSheet").hidden = true; });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") $("#verdictSheet").hidden = true;
+    if (!$("#guideDialog").open) return;
+    if (e.key === "ArrowRight") { e.preventDefault(); showTourSlide(tourIndex + 1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); showTourSlide(tourIndex - 1); }
+  });
   // Clicking the dimmed backdrop around a card, the guide, or past sessions closes it (Escape already does).
   // Both press and release must land outside the box, so a text selection dragged out of it never closes it.
   $$("dialog.card-dialog").forEach((d) => {
@@ -321,12 +661,17 @@ const player = {
 function reset() {
   state.es?.close();
   player.reset();
-  Object.assign(state, { session: null, options: [], weights: {}, active: [], round: 0, cards: { 1: {}, 2: {}, 3: {} }, replaying: false, verdict: null, links: [], speaking: null, setup: null, wait: null });
+  Object.assign(state, { session: null, options: [], weights: {}, active: [], round: 0, cards: { 1: {}, 2: {}, 3: {} }, replaying: false, verdict: null, links: [], speaking: null, setup: null, wait: null, intake: null, resumable: null });
   hideWait();
   $("#stage").classList.remove("live");
   $("#topic").hidden = true;
-  $("#composer").hidden = state.runner !== "api";
+  $("#composer").hidden = state.runner !== "api" || daily.locked || daily.started;
+  $("#chatBtn").disabled = daily.locked || daily.started;
   $("#waiting").hidden = state.runner === "api";
+  $("#intakeReview").hidden = true;
+  $("#approval").hidden = true;
+  $("#dailyLimitNotice").hidden = !daily.locked && !daily.started;
+  $("#resumeNotice").hidden = true;
   $("#caption").hidden = true;
   $("#cruxes").hidden = true;
   $("#plate").hidden = true;
@@ -334,7 +679,7 @@ function reset() {
   $("#newBtn").hidden = true;
   $("#verdictSheet").hidden = true;
   $("#panelHead").textContent = "Getting started";
-  $("#feed").innerHTML = GUIDE;
+  $("#feed").innerHTML = IDLE_GUIDE;
   $$(".vote").forEach((b) => b.remove());
   renderSeats(state.board);
   $$(".seat").forEach((el) => { el.classList.remove("absent", "speaking", "thinking", "addressed"); $(".bust", el).dataset.shape = "base"; });
@@ -342,12 +687,15 @@ function reset() {
   $("#spot").classList.remove("on");
   $$(".stepper li").forEach((li) => li.classList.remove("active", "done"));
   drawLinks();
+  if (daily.started) showDailyLimit({ resetAt: daily.resetAt }, true);
+  else if (daily.locked) showDailyLimit({ resetAt: daily.resetAt, state: daily.state });
 }
 
 function begin(id) {
   reset();
   state.session = id;
   $("#composer").hidden = true;
+  $("#dailyLimitNotice").hidden = true;
   $("#waiting").hidden = true;
   $("#newBtn").hidden = false;
   $("#playbar").hidden = false;
@@ -509,7 +857,7 @@ function captionFor(who) {
   c.style.animation = "none"; void c.offsetWidth; c.style.animation = "";
   const s = state.byKey[who];
   $("#capAv").className = `cap-av${s ? "" : " chair"}`;
-  $("#capAv").innerHTML = `<img src="${s ? portrait(who) : "/brand/ais-symbol.png"}" alt="">`;
+  $("#capAv").innerHTML = `<img src="${s ? portrait(who) : "/brand/revalida-mark.png"}" alt="">`;
   $("#capWho").textContent = s ? s.name : "The Chair";
 }
 
@@ -778,7 +1126,7 @@ async function openHistory() {
   const { sessions } = await fetch("/api/sessions").then((x) => x.json());
   $("#historyList").innerHTML = sessions.length
     ? sessions.map((s) => `<li><button data-id="${esc(s.id)}"><b>${esc(s.title)}</b><small>${esc(s.id.slice(0, 10))} · ${esc(s.mode)} · ${esc(s.status)}</small></button>${s.status === "done" ? `<button class="pdf" type="button" data-pdf="${esc(s.id)}" title="Download the verdict as a PDF">PDF</button>` : ""}</li>`).join("")
-    : '<li class="muted">No sessions yet. Convene the council once and it shows up here.</li>';
+    : '<li class="muted">No sessions yet. Confirm a council once and it shows up here.</li>';
   $$("#historyList button[data-id]").forEach((b) => b.addEventListener("click", () => { $("#historyDialog").close(); replay(b.dataset.id); }));
   $("#historyDialog").showModal();
 }
@@ -793,10 +1141,10 @@ async function replay(id) {
   }
 }
 
-// ------------------------------------------------------------- waiting on Claude Code
+// ------------------------------------------------------------- live council waiting
 // A live council goes quiet for minutes while the seats write in parallel. Instead of a
 // frozen table, say what is happening, how long it has been, and what each seat is weighing.
-const SAME_TIME = "The advisors all write at the same time in Claude Code. Their lines play here as soon as the round is in.";
+const SAME_TIME = "The advisors write in parallel. Their lines play here as each response arrives.";
 function waitCopy(phase) {
   const n = state.setup?.mode === "quick" ? 2 : 3;
   return {
@@ -873,9 +1221,31 @@ function tickWait() {
 }
 
 function openGuide() {
-  $("#guideBody").innerHTML = GUIDE;
   const d = $("#guideDialog");
+  showTourSlide(0);
   if (!d.open) d.showModal();
+}
+
+function showTourSlide(index) {
+  const previous = tourIndex;
+  tourIndex = Math.max(0, Math.min(TOUR.length - 1, index));
+  const slide = TOUR[tourIndex];
+  const body = $("#guideBody");
+  body.dataset.direction = index >= previous ? "next" : "previous";
+  body.innerHTML = `
+    <article class="tour-slide" aria-labelledby="tourTitle">
+      <div class="tour-art" aria-hidden="true"><span class="tour-mark"><img src="/brand/revalida-mark.png" alt=""></span><span class="tour-orbit orbit-one"></span><span class="tour-orbit orbit-two"></span></div>
+      <div class="tour-copy">
+        <p class="tour-eyebrow">${esc(slide.eyebrow)} <span>${String(tourIndex + 1).padStart(2, "0")} / ${String(TOUR.length).padStart(2, "0")}</span></p>
+        <h2 id="tourTitle">${esc(slide.title)}</h2>
+        <p class="tour-description">${esc(slide.copy)}</p>
+        <ul>${slide.points.map((point) => `<li>${esc(point)}</li>`).join("")}</ul>
+        ${slide.example ? `<button class="ghost tour-example" type="button" data-use-example>Try a sample decision <span aria-hidden="true">↗</span></button>` : ""}
+      </div>
+    </article>`;
+  $("#guidePrev").disabled = tourIndex === 0;
+  $("#guideNext").textContent = tourIndex === TOUR.length - 1 ? "Done" : "Next";
+  $("#guideDots").innerHTML = TOUR.map((_, i) => `<button class="tour-dot" type="button" data-tour-index="${i}" aria-label="Go to tour step ${i + 1}" aria-current="${i === tourIndex ? "step" : "false"}"></button>`).join("");
 }
 
 // ------------------------------------------------------------- PDF

@@ -1,8 +1,8 @@
 # Live room files
 
-The Roast Room (a local web app on http://localhost:4730) watches the sessions folder and plays a council as its files appear: portraits talk one at a time, rebuttal arrows fly, votes land, and the verdict comes up. It reads the round files you already write, plus four small JSON files. Write each one at the moment listed, as plain JSON (no comments, no trailing commas). Seat names can be keys (`garyvee`) or display names (`Gary V`).
+This format is only for optional viewer mode. Normal Revalida councils run in the web app and do not need an external runner. When `COUNCIL_RUNNER=viewer`, Revalida watches a compatible session folder and plays a council as files appear: portraits talk one at a time, rebuttal arrows fly, votes land, and the verdict comes up. It reads the round files already written, plus four small JSON files. Write each one at the moment listed, as plain JSON (no comments, no trailing commas). Seat names can be keys (`garyvee`) or display names (`Gary V`).
 
-The room is optional. Write these files anyway; they cost a few lines and the council runs the same without the room.
+Viewer mode is optional. Normal councils do not need an external runner or these files to be written by hand.
 
 ## Order
 

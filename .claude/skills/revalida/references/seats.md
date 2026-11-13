@@ -1,6 +1,6 @@
 # Seats
 
-`roster.json` (one folder up) is the source of truth: every seat, its key, pillar, question, and scorecard dimension, plus the default board and how the board is picked. The seven seats that ship with the Roast Room:
+`roster.json` (one folder up) is the source of truth: every seat, its key, pillar, question, and scorecard dimension, plus the default board and how the board is picked. The seven seats that ship with Revalida:
 
 | Seat | Agent | Pillar | Owns the question | Brain |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@
 | Wickman | `council-wickman` | Operations and scaling | Can the business run this without the founder holding it together? | `brains/gino-wickman/` |
 | Buffett | `council-buffett` | Money and capital | What does it do to cash, risk, and long-term value? | `brains/warren-buffett/` |
 
-Brain paths are relative to `.claude/skills/roast-room/`. Seats added with `/newroaster` follow the same pattern: `council-<key>` and `brains/<slug>/`, listed in `roster.json`.
+Brain paths are relative to `.claude/skills/revalida/`. Seats added with the advisor-builder workflow follow the same pattern: `council-<key>` and `brains/<slug>/`, listed in `roster.json`.
 
 ## Relevance weights
 
@@ -36,8 +36,12 @@ Every seat is at least 1. Exactly one or two seats get a 3.
 - Graham (do things that don't scale, stay close to users) against Wickman (systems, process, accountability).
 - Buffett (stay in your circle, avoid leverage) against Gary V (bet on the underpriced platform now).
 - Martell (buy back your time, hire early) against Graham and Buffett (stay small and frugal until it works).
+- Andre Yap (100X, consequential before--after, proof not participation) against Buffett and Bezos (long-term patience): Andre pushes them on whether a 2X ceiling is worth doing at all; they push back that audacity without downside protection is how founders die.
+- Andre Yap against Wickman and Martell (operational discipline, founder time): Andre's expedition rhetoric can outrun what the org can execute weekly; they force him back to the entry microcosm and the founder's calendar.
+- Andre Yap against Graham (real demand first): both start from the customer, but Graham wants the smallest thing that works while Andre wants the biggest consequential delta, so they argue about sequencing.
+- Andre Yap (100X, consequential before--after, proof not participation) against Buffett (downside first) and Wickman (operational readiness): he pushes them on whether "steady" is slow decline in a fast-moving market; they push back when the runway is too short for a 100X attempt. He also collides productively with Musk (both first-principles and speed) when Andre demands the before--after proof Musk's execution skips.
 
-Seats added with `/newroaster` append their own tension lines here.
+New seats append their own tension lines here.
 
 On-call seats (in `roster.json`, off the default board; the Chair recommends them when the decision is in their lane):
 
