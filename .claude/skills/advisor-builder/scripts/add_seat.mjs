@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Register a finished seat in the Roast Room roster (.claude/skills/roast-room/roster.json).
+// Register a finished seat in the Revalida roster (.claude/skills/revalida/roster.json).
 //
-//   node .claude/skills/newroaster/scripts/add_seat.mjs --key naval --name "Naval Ravikant" --short Naval \
+//   node .claude/skills/advisor-builder/scripts/add_seat.mjs --key naval --name "Naval Ravikant" --short Naval \
 //     --slug naval-ravikant --pillar "Leverage and wealth" --question "Does this build leverage you own?" \
 //     --dimension "Leverage and long-term wealth" [--color "#22b8a0"] [--default] [--swap <key>]
 //
@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
-const SKILL = path.join(ROOT, ".claude", "skills", "roast-room");
+const SKILL = path.join(ROOT, ".claude", "skills", "revalida");
 const ROSTER = path.join(SKILL, "roster.json");
 const MAX_BOARD = 9;
 const BRAIN_FILES = ["_hot.md", "frameworks.md", "principles.md", "positions.md", "voice.md", "stories.md", "sources.md"];
@@ -33,8 +33,11 @@ if (!/^[a-z][a-z0-9]{1,15}$/.test(seat.key)) fail("--key must be 2 to 16 lowerca
 if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(seat.slug)) fail("--slug must look like first-last");
 seat.initials ||= seat.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 3).toUpperCase();
 
-const agent = path.join(ROOT, ".claude", "agents", `council-${seat.key}.md`);
-if (!fs.existsSync(agent)) fail(`missing agent file ${path.relative(ROOT, agent)}`);
+// A seat's agent can live in .claude/agents (Claude Code) or .opencode/agents (OpenCode).
+const agent = [".claude", ".opencode"]
+  .map((d) => path.join(ROOT, d, "agents", `council-${seat.key}.md`))
+  .find((f) => fs.existsSync(f));
+if (!agent) fail(`missing agent file .claude/agents/council-${seat.key}.md (or .opencode/agents/)`);
 const brain = path.join(SKILL, "brains", seat.slug);
 const missing = BRAIN_FILES.filter((f) => !fs.existsSync(path.join(brain, f)));
 if (missing.length) fail(`brain ${path.relative(ROOT, brain)} is missing ${missing.join(", ")}`);

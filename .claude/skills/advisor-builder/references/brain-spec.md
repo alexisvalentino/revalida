@@ -1,8 +1,8 @@
-# Brain spec: one seat on the Roast Room council
+# Brain spec: one seat on Revalida's council
 
-Every seat has the same brain layout, so the council agents differ only in content. The original seven follow this spec; new seats must too.
+Every seat has the same brain layout, so the council agents differ only in content. All seats follow this spec.
 
-Folder: `.claude/skills/roast-room/brains/<slug>/`
+Folder: `.claude/skills/revalida/brains/<slug>/`
 
 ## Files
 

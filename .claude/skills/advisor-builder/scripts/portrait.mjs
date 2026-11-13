@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-// Make a new seat's cartoon portrait the same way the original seven were made: a real photo
+// Make a new seat's cartoon portrait using Revalida's current style: a real photo
 // of the person plus a style reference (one of the existing cartoons) go to Seedream 5 Pro
 // image-to-image, which returns a 3D animated-film bust on a green screen. Then three edits of
 // the chosen bust give the talking frames (mouth open, mouth "oh", eyes closed).
-// build_portraits.py turns those into the room's aligned, keyed frames.
+// build_portraits.py turns those into aligned, keyed frames for the council scene.
 //
-//   node .claude/skills/newroaster/scripts/portrait.mjs photo  <dir> <image url or file>
-//   node .claude/skills/newroaster/scripts/portrait.mjs base   <dir> "<who and what they wear>" [--n 2]
-//   node .claude/skills/newroaster/scripts/portrait.mjs pick   <dir> <candidate number>
-//   node .claude/skills/newroaster/scripts/portrait.mjs frames <dir>
-//   node .claude/skills/newroaster/scripts/portrait.mjs probe
+//   node .claude/skills/advisor-builder/scripts/portrait.mjs photo  <dir> <image url or file>
+//   node .claude/skills/advisor-builder/scripts/portrait.mjs base   <dir> "<who and what they wear>" [--n 2]
+//   node .claude/skills/advisor-builder/scripts/portrait.mjs pick   <dir> <candidate number>
+//   node .claude/skills/advisor-builder/scripts/portrait.mjs frames <dir>
+//   node .claude/skills/advisor-builder/scripts/portrait.mjs probe
 //
 // <dir> is the seat's portrait folder, <build>/portrait/. It holds photo.jpg, cand1.png...,
 // base.png, open.png, mid.png, and blink.png. Needs KIE_AI_API_KEY (kie.ai) in the
@@ -24,7 +24,7 @@ const API = "https://api.kie.ai";
 const UPLOAD = "https://kieai.redpandaai.co/api/file-base64-upload";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
-// The exact prompts the original seven were built with. Change them and new seats stop matching.
+// The prompts that define Revalida's current portrait style.
 const STYLE = "Turn the real person in the first image into a stylized 3D animated-film cartoon caricature drawn in exactly the same art style, rendering, lighting, and framing as the cartoon in the second image: head and upper chest bust, facing the camera straight on, centered, eyes looking at the viewer, mouth closed in a relaxed friendly smile. Keep the real person's likeness from the first image exactly: face shape, nose, eyes, eyebrows, hairline, and facial hair. Plain flat solid pure green (#00ff00) background, nothing else in the frame, no text except on the clothing.";
 const KEEP = "Keep everything else exactly identical: same character, same face, same head position and size, same pose, same clothes, same lighting, same framing, same green background.";
 const EDITS = {
@@ -58,7 +58,7 @@ async function upload(file) {
   const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
   const r = await fetch(UPLOAD, {
     method: "POST", headers: H,
-    body: JSON.stringify({ base64Data: `data:${mime};base64,${fs.readFileSync(file).toString("base64")}`, uploadPath: "roast-room", fileName: path.basename(file) }),
+    body: JSON.stringify({ base64Data: `data:${mime};base64,${fs.readFileSync(file).toString("base64")}`, uploadPath: "revalida", fileName: path.basename(file) }),
   });
   const j = await r.json();
   const url = j?.data?.downloadUrl || j?.data?.fileUrl || j?.data?.url;

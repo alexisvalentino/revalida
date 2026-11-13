@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Fetch public sources for a new Roast Room seat into its build folder, one markdown file per
+// Fetch public sources for a new Revalida seat into its build folder, one markdown file per
 // source, and keep the source id table (S001, S002, ...) the brain cites.
 //
-//   node .claude/skills/newroaster/scripts/fetch.mjs <build dir> <url> [<url> ...]
-//   node .claude/skills/newroaster/scripts/fetch.mjs <build dir> --list urls.txt
-//   node .claude/skills/newroaster/scripts/fetch.mjs <build dir> --add <file.md|.txt|.pdf> --title "..." [--url ...] [--date YYYY-MM-DD]
-//   node .claude/skills/newroaster/scripts/fetch.mjs <build dir> --manifest
-//   node .claude/skills/newroaster/scripts/fetch.mjs <build dir> --sources-md <brain>/sources.md --name "Full Name"
+//   node .claude/skills/advisor-builder/scripts/fetch.mjs <build dir> <url> [<url> ...]
+//   node .claude/skills/advisor-builder/scripts/fetch.mjs <build dir> --list urls.txt
+//   node .claude/skills/advisor-builder/scripts/fetch.mjs <build dir> --add <file.md|.txt|.pdf> --title "..." [--url ...] [--date YYYY-MM-DD]
+//   node .claude/skills/advisor-builder/scripts/fetch.mjs <build dir> --manifest
+//   node .claude/skills/advisor-builder/scripts/fetch.mjs <build dir> --sources-md <brain>/sources.md --name "Full Name"
 //
 // Web pages become plain text. YouTube links become transcripts with [mm:ss] markers (yt-dlp
 // when it is installed, otherwise YouTube's own caption tracks). PDFs need pdftotext; without
@@ -107,7 +107,7 @@ function json3ToText(j) {
 }
 
 function viaYtDlp(id) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "roaster-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "advisor-"));
   try {
     const info = JSON.parse(execFileSync("yt-dlp", ["-J", "--no-warnings", `https://www.youtube.com/watch?v=${id}`], { encoding: "utf8", maxBuffer: 64 << 20 }));
     execFileSync("yt-dlp", ["--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "en.*,en", "--sub-format", "json3", "--no-warnings", "-o", path.join(dir, "v"), `https://www.youtube.com/watch?v=${id}`], { stdio: "ignore" });

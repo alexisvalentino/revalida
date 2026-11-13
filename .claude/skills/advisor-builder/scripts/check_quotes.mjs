@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Check that every quote in a seat's notes or brain is verbatim in the source it cites.
 //
-//   node .claude/skills/newroaster/scripts/check_quotes.mjs <build dir> <file or folder> [...]
+//   node .claude/skills/advisor-builder/scripts/check_quotes.mjs <build dir> <file or folder> [...]
 //
 // A quote is text in double quotes followed within a few characters by a source id, like
 // "..." (S014) or "..." (S014, S020). Each quote must appear in the corpus file of one of

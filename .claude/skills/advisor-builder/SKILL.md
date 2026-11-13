@@ -1,17 +1,17 @@
 ---
-name: newroaster
-description: Use when someone wants to add a new advisor to the Roast Room, says "/newroaster", "add a roaster", "add a seat", "add [name] to the council", "build a seat for [name]", "I want [name] on my board", or wants their own advisor (themselves, a mentor, or any public figure) built from public work. Builds the seat the same way the original seven were built. It finds and fetches the person's public sources, extracts their frameworks, rules, positions, stories, and voice with parallel sub-agents, writes the brain, checks every quote is verbatim, writes the council agent, makes their cartoon portrait for the room from a real photo (the same style and talking frames as the original seven), and registers the seat in the roster (on the default board if asked). Also redoes a portrait ("/newroaster portrait <name>"). Not for running a council (that is /roast-room).
+name: advisor-builder
+description: Optional maintainer workflow for adding an advisor seat to Revalida from public work. It gathers sources, builds and checks the advisor research, writes prompt files, creates portrait assets, and registers the new seat. Not for running a council; founders use the Revalida web app at http://localhost:4730.
 argument-hint: "[full name] [--quick | --deep] [--pillar \"...\"] [--default] | portrait <name>"
 ---
 
 ## What this does
 
-Adds one seat to the Roast Room. A seat is four things, and this skill makes all four:
+Adds a seat to Revalida. A seat is four things, and this skill makes all four:
 
-1. **A brain**: `.claude/skills/roast-room/brains/<slug>/`, eight files compiled from the person's public work, every quote verbatim with a source id.
+1. **A brain**: `.claude/skills/revalida/brains/<slug>/`, eight files compiled from the person's public work, every quote verbatim with a source id.
 2. **An agent**: `.claude/agents/council-<key>.md`, the sub-agent that reasons and talks like them from that brain.
-3. **A portrait**: four cartoon frames in the room (`<key>-base`, `-open`, `-mid`, `-blink`), made from a real photo of the person in exactly the style of the original seven.
-4. **A roster entry**: one line in `.claude/skills/roast-room/roster.json`, so `/roast-room` and the room know the seat exists.
+3. **A portrait**: four consistent cartoon frames in the council scene (`<key>-base`, `-open`, `-mid`, `-blink`), made from a real photo using Revalida's current portrait style.
+4. **A roster entry**: one line in `.claude/skills/revalida/roster.json`, so Revalida's roster and web app know the seat exists.
 
 The raw sources stay in a local build folder that git ignores. Only the brain ships.
 
@@ -19,7 +19,7 @@ Build folder: `build/<slug>/` at the project root.
 
 Read before the first run: `references/brain-spec.md` (the brain layout and its rules), `references/extract-prompt.md` (what each extraction agent gets), `references/writer-prompt.md` (what each brain writer gets), `references/agent-template.md` (the seat agent).
 
-## Who can be a roaster
+## Who can be an advisor
 
 - **Public figures with a real body of public work**: essays, letters, books as they teach them in talks, long interviews where they are the main speaker, keynotes, their own channel or podcast. Living or historical.
 - **The user, or someone who gave consent**: built from material the user provides (their posts, transcripts, notes). Use `--add` in step 3.
@@ -33,7 +33,7 @@ The seat is a simulation, not the person. The agent says so if asked, and only q
 |---|---|---|---|---|
 | `--quick` | 12 to 20 | 80k+ | 2 to 3 | Trying someone out |
 | default | 30 to 50 | 250k+ | 4 to 6 | A seat you will actually use |
-| `--deep` | 80+ | 500k+ | 8 to 12, in waves | Matching the original seven |
+| `--deep` | 80+ | 500k+ | 8 to 12, in waves | Building a thoroughly sourced advisor |
 
 Quality beats count: one 90-minute keynote is worth ten 6-minute clips.
 
@@ -45,7 +45,7 @@ From the user's message, get the person's full name. If anything below is missin
 2. **Default board?** Put them at the table for every council, or keep them on call (`--seats` and `ask`). If the default board already has nine seats, ask who they replace.
 3. **Depth**: quick, standard, or deep (default standard).
 
-Then fix the names: `key` (short lowercase, letters only, unique in the roster, usually the surname: `naval`, `drucker`; the first name when another seat already has the surname: `leila`), `slug` (`first-last`), `short` (how the room names them: "Naval", "Leila"), and the scorecard `dimension` (a few words for what this seat scores, like "Leverage and long-term wealth").
+Then fix the names: `key` (short lowercase, letters only, unique in the roster, usually the surname: `naval`, `drucker`; the first name when another seat already has the surname: `leila`), `slug` (`first-last`), `short` (the council's label, such as "Naval" or "Leila"), and the scorecard `dimension` (a few words for what this seat scores, like "Leverage and long-term wealth").
 
 Check the roster first: if the person already has a seat, stop and offer to refresh it instead (step 3 onward on the same slug; fetch skips sources already in `sources.json`).
 
@@ -64,13 +64,13 @@ Skip clips under about 10 minutes, fan compilations, reaction videos, and pieces
 ## Step 3: Fetch
 
 ```bash
-node .claude/skills/newroaster/scripts/fetch.mjs <build> --list <build>/urls.txt
+node .claude/skills/advisor-builder/scripts/fetch.mjs <build> --list <build>/urls.txt
 ```
 
 Each source becomes `<build>/corpus/S001-<title>.md`, logged in `<build>/sources.json`. It prints `ok`, `skip`, `thin` (paywall or a JavaScript page), or `fail` per URL, then a manifest. YouTube uses yt-dlp when installed, otherwise YouTube's own captions. For local material the user gave you:
 
 ```bash
-node .claude/skills/newroaster/scripts/fetch.mjs <build> --add path/to/file.md --title "..." --date 2024-05-01
+node .claude/skills/advisor-builder/scripts/fetch.mjs <build> --add path/to/file.md --title "..." --date 2024-05-01
 ```
 
 If a source came back thin or failed, find a different copy (a transcript page, an archive.org copy) or replace it. A PDF without `pdftotext` is saved as `pending-*.pdf`: read it with the Read tool, save the text as a `.md`, then `--add` it. Re-run until the manifest meets the depth target, then open two or three corpus files to confirm they are clean text by the right person. Write the manifest line counts into your notes for the final report.
@@ -82,17 +82,17 @@ Split the sources into batches of about 50,000 words each (a 90-minute talk is a
 Each agent writes `<build>/notes/batch-NN.md`. Wait until every agent has reported. When all are back, check every note quote:
 
 ```bash
-node .claude/skills/newroaster/scripts/check_quotes.mjs <build> <build>/notes
+node .claude/skills/advisor-builder/scripts/check_quotes.mjs <build> <build>/notes
 ```
 
 Fix what it reports: correct a wrong source id, delete a quote it cannot find. Notes with no verifiable quote can stay as paraphrase, marked "inferred from S0xx".
 
 ## Step 5: Write the brain (reduce)
 
-Create `.claude/skills/roast-room/brains/<slug>/`. Write `sources.md` with the script:
+Create `.claude/skills/revalida/brains/<slug>/`. Write `sources.md` with the script:
 
 ```bash
-node .claude/skills/newroaster/scripts/fetch.mjs <build> --sources-md .claude/skills/roast-room/brains/<slug>/sources.md --name "Full Name"
+node .claude/skills/advisor-builder/scripts/fetch.mjs <build> --sources-md .claude/skills/revalida/brains/<slug>/sources.md --name "Full Name"
 ```
 
 Then spawn three writer agents in one message, in parallel (`general-purpose`, default model), with the prompt from `references/writer-prompt.md`. Each reads every notes file plus `references/brain-spec.md` and writes its files into the brain folder, following the spec's budgets and rules:
@@ -106,7 +106,7 @@ Tell each writer the seat's pillar and question, the build folder (so it can ope
 When they are back, write `_hot.md` yourself from the six finished files (the spec lists what goes in it, including "where this lens misfires"). Then check the whole brain:
 
 ```bash
-node .claude/skills/newroaster/scripts/check_quotes.mjs <build> .claude/skills/roast-room/brains/<slug>
+node .claude/skills/advisor-builder/scripts/check_quotes.mjs <build> .claude/skills/revalida/brains/<slug>
 ```
 
 Fix until it passes: every quote verbatim, every id right. Read `_hot.md` once more as the agent will: it should tell you how this person decides, in their words, in under 800 words.
@@ -118,31 +118,31 @@ Write `.claude/agents/council-<key>.md` from `references/agent-template.md`. Fil
 ## Step 7: Register the seat
 
 ```bash
-node .claude/skills/newroaster/scripts/add_seat.mjs --key <key> --name "<Full Name>" --short "<Short>" --slug <slug> --pillar "<pillar>" --question "<question>" --dimension "<dimension>" [--default] [--swap <key>]
+node .claude/skills/advisor-builder/scripts/add_seat.mjs --key <key> --name "<Full Name>" --short "<Short>" --slug <slug> --pillar "<pillar>" --question "<question>" --dimension "<dimension>" [--default] [--swap <key>]
 ```
 
 It refuses if the agent file or a brain file is missing. `--default` adds the seat to the default board; `--swap <key>` takes another seat off it in the same move. Then:
 
-- Add one or two "natural tension" lines for the new seat to `.claude/skills/roast-room/references/seats.md` (who they will clash with, and over what).
+- Add one or two "natural tension" lines for the new seat to `.claude/skills/revalida/references/seats.md` (who they will clash with, and over what).
 
 ## Step 8: Portrait
 
-Every seat gets a real portrait. Never leave a new seat on the drawn placeholder bust and never draw a real person from a written description alone: the likeness comes from a photo. This is the same pipeline the original seven went through, with the same prompts and the same style reference (`assets/style-reference.jpg`, the Buffett cartoon). Portrait folder: `<build>/portrait/` (ignored by git). Frames folder: `app/public/portraits/`.
+Every seat gets a real portrait. Never leave a new seat on the drawn placeholder bust and never draw a real person from a written description alone: the likeness comes from a photo. Follow the current prompts and style reference (`assets/style-reference.jpg`). Portrait folder: `<build>/portrait/` (ignored by git). Frames folder: `app/public/portraits/`.
 
 1. **Find a photo.** One recent, clear, front-facing photo of the person alone, from an official source: their own YouTube channel avatar (`yt-dlp -J --flat-playlist --playlist-items 0 https://www.youtube.com/@handle` lists `avatar_uncropped`; swap its `=s0` for `=s900`), their own site, or their Wikipedia or Wikimedia Commons photo. Skip logos, group shots, and side profiles. For the user or a mentor built from their own material, use a photo they give you.
-2. **Save it and look at it:** `node .claude/skills/newroaster/scripts/portrait.mjs photo <build>/portrait <url>`. Open `photo.jpg` with Read and confirm it is the right person and the face is clear.
-3. **Two cartoon candidates:** `node .claude/skills/newroaster/scripts/portrait.mjs base <build>/portrait "<Full Name>. <hair, facial hair, eye color, skin, build, and the outfit they are known for>"`. Describe what the photo shows; name the signature outfit or accessory (a cap, glasses, a chain). The description steers the details; the photo carries the likeness.
-4. **Pick by likeness:** `python .claude/skills/newroaster/scripts/build_portraits.py sheet <build>/portrait`, then open `candidates.jpg` (photo first, then each candidate). Pick the one closest to the photo (face shape, eyes, hair, signature details). If neither is close, run `base` again with a sharper description (eye color and hairline are the usual misses) and `--n 2`, then pick: `portrait.mjs pick <build>/portrait <n>`.
-5. **Talking frames:** `node .claude/skills/newroaster/scripts/portrait.mjs frames <build>/portrait` (mouth open, mouth "oh", eyes closed, each an edit of the chosen base).
-6. **Build:** `python .claude/skills/newroaster/scripts/build_portraits.py build <build>/portrait <key> --out app/public/portraits`. It aligns each edit onto the base, patches only the mouth or eyes, keys the green, and crops every head to the same scale as the seven. Open `<build>/portrait/review.jpg`: four frames, same face, no green fringe, the mouth and eyes the only change. If a head sits too small or too large next to the others, rebuild with `--zoom 0.9` or `--zoom 1.1`.
+2. **Save it and look at it:** `node .claude/skills/advisor-builder/scripts/portrait.mjs photo <build>/portrait <url>`. Open `photo.jpg` with Read and confirm it is the right person and the face is clear.
+3. **Two cartoon candidates:** `node .claude/skills/advisor-builder/scripts/portrait.mjs base <build>/portrait "<Full Name>. <hair, facial hair, eye color, skin, build, and the outfit they are known for>"`. Describe what the photo shows; name the signature outfit or accessory (a cap, glasses, a chain). The description steers the details; the photo carries the likeness.
+4. **Pick by likeness:** `python .claude/skills/advisor-builder/scripts/build_portraits.py sheet <build>/portrait`, then open `candidates.jpg` (photo first, then each candidate). Pick the one closest to the photo (face shape, eyes, hair, signature details). If neither is close, run `base` again with a sharper description (eye color and hairline are the usual misses) and `--n 2`, then pick: `portrait.mjs pick <build>/portrait <n>`.
+5. **Talking frames:** `node .claude/skills/advisor-builder/scripts/portrait.mjs frames <build>/portrait` (mouth open, mouth "oh", eyes closed, each an edit of the chosen base).
+6. **Build:** `python .claude/skills/advisor-builder/scripts/build_portraits.py build <build>/portrait <key> --out app/public/portraits`. It aligns each edit onto the base, patches only the mouth or eyes, keys the green, and matches the current portrait set's scale. Open `<build>/portrait/review.jpg`: four frames, same face, no green fringe, the mouth and eyes the only change. If a head sits too small or too large next to the others, rebuild with `--zoom 0.9` or `--zoom 1.1`.
 
-Needs `KIE_AI_API_KEY` (kie.ai, about 5 image jobs a seat) in `.env`, Node, and Python with `opencv-python` and `numpy` (`pip install opencv-python numpy` if the build step says they are missing). If there is no kie.ai key, finish the seat anyway (the room shows a drawn placeholder), tell the user in one line how to add a key (https://kie.ai/api-key, then `KIE_AI_API_KEY=` in `.env`), and that `/newroaster portrait <name>` makes the portrait afterward.
+Needs `KIE_AI_API_KEY` (kie.ai, about 5 image jobs a seat) in `.env`, Node, and Python with `opencv-python` and `numpy` (`pip install opencv-python numpy` if the build step says they are missing). If there is no kie.ai key, finish the seat anyway (the web app shows a drawn placeholder), tell the user in one line how to add a key (https://kie.ai/api-key, then `KIE_AI_API_KEY=` in `.env`), and that `/advisor-builder portrait <name>` makes the portrait afterward.
 
-**Portrait only** (`/newroaster portrait <name>`, or a seat that shows the placeholder): run this step alone for a seat already in `roster.json`, using its `key` and `slug`, then tell the user to reload the room.
+**Portrait only** (`/advisor-builder portrait <name>`, or a seat that shows the placeholder): run this step alone for a seat already in `roster.json`, using its `key` and `slug`, then tell the user to reload Revalida.
 
 ## Step 9: Test the seat
 
-New agent files load when Claude Code starts, so test with the fallback the council itself uses: spawn `general-purpose` with `Read .claude/agents/council-<key>.md and follow it as your instructions for this whole task. Only read files; do not write anything.` followed by the single-seat consult prompt from `.claude/skills/roast-room/references/round-prompts.md`, on a short sample decision in the seat's pillar. Then check its answer:
+New agent files load when Claude Code starts, so test with the fallback the council itself uses: spawn `general-purpose` with `Read .claude/agents/council-<key>.md and follow it as your instructions for this whole task. Only read files; do not write anything.` followed by the single-seat consult prompt from `.claude/skills/revalida/references/round-prompts.md`, on a short sample decision in the seat's pillar. Then check its answer:
 
 - It sounds like the person (compare with `voice.md`), speaks in the first person, and never claims to be them.
 - It names frameworks with source ids, and every quote passes `check_quotes.mjs` (save the answer to `<build>/test-consult.md` and run the checker on it).
@@ -156,9 +156,9 @@ Tell the user, in under 150 words:
 
 - Who was added, their pillar and question, and whether they are on the default board.
 - The brain: sources, words, years covered, and the files written.
-- How to use them now: `/roast-room ask <key> ...` for one answer, `/roast-room --seats <key>,buffett,... ...` to seat them, and `/roast-room board` to change the default board.
+- How to use them now: `/revalida ask <key> ...` for one answer, `/revalida --seats <key>,buffett,... ...` to seat them, and `/revalida board` to change the default board.
 - One line: restart Claude Code (or open a new session) so the seat loads as its own agent type; until then the council uses the fallback automatically.
-- One line: their portrait is in the room (reload the page), or, when no kie.ai key was available, that it shows a placeholder until `/newroaster portrait <name>` runs.
+- One line: their portrait is in the council scene (reload the page), or, when no kie.ai key was available, that it shows a placeholder until `/advisor-builder portrait <name>` runs.
 
 ## Without sub-agents (Codex or a runtime that cannot spawn agents)
 
@@ -170,5 +170,5 @@ Run steps 4 and 5 yourself, one batch at a time: extract a batch into its notes 
 - Every quote in the brain is verbatim and passes `check_quotes.mjs`. A line with no source is inference and says so.
 - Do not touch the other seats' brains or agents. Only `roster.json`'s `"seats"` and `"default"` change, through `add_seat.mjs`.
 - Plain English in everything you write yourself: short sentences, no em dashes, no filler.
-- A portrait is part of every seat, made from a real photo with the original seven's prompts and style reference. A written description alone never sets the likeness.
+- A portrait is part of every seat, made from a real photo with the current prompts and style reference. A written description alone never sets the likeness.
 - Cost: a standard seat is about 8 to 10 sub-agent runs plus about 5 kie.ai image jobs. Say which depth you used.

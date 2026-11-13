@@ -1,11 +1,10 @@
-"""Turn a seat's portrait renders into the talking-head frames the Roast Room uses.
+"""Turn a seat's portrait renders into the talking-head frames the Revalida uses.
 
-The same processing the original seven went through (OtherWorlds art/build_portraits.py in
-the source workspace): each edit (open, mid, blink) is aligned back onto the base with ORB
-features and a similarity transform, and only the changed region (mouth or eyes) is feathered
-onto the base. Every frame is then pixel-identical outside the mouth or eyes, which keeps the
-swap from jittering. The green screen is keyed to alpha, every head is cropped to the same
-scale, and the frames land in <out>/<key>-<shape>.webp.
+Each edit (open, mid, blink) is aligned back onto the base with ORB features and a similarity
+transform, and only the changed region (mouth or eyes) is feathered onto the base. Every frame is
+then pixel-identical outside the mouth or eyes, which keeps the swap from jittering. The green
+screen is keyed to alpha, every head is cropped to a consistent scale, and the frames land in
+<out>/<key>-<shape>.webp.
 
     python build_portraits.py sheet <dir>                     photo next to every candidate, for picking
     python build_portraits.py build <dir> <key> --out <dir>   base/open/mid/blink.png -> <key>-*.webp

@@ -3,9 +3,9 @@
 One agent per batch of about 50,000 words. Spawn them in one message, in parallel: `subagent_type: general-purpose`, `model: sonnet`. Replace the bracketed parts.
 
 ```
-ROAST ROOM SEAT BUILD: EXTRACT NOTES
+REVALIDA SEAT BUILD: EXTRACT NOTES
 
-You are building the brain for a new Roast Room seat: [Full Name], who will hold the [pillar] seat and own the question "[question]". The brain teaches an agent to reason, decide, and talk like this person. Your job is one batch of their public sources.
+You are building the brain for a new Revalida seat: [Full Name], who will hold the [pillar] seat and own the question "[question]". The brain teaches an agent to reason, decide, and talk like this person. Your job is one batch of their public sources.
 
 Repo root: [absolute path]
 Read these source files in full (each opens with its title and "Source: S0xx | url | date"):

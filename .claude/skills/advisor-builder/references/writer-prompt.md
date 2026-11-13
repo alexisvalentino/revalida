@@ -3,19 +3,19 @@
 Three writers per seat, spawned in one message, in parallel: `subagent_type: general-purpose` (default model). Replace the bracketed parts. Writer A gets `frameworks.md, principles.md, books.md`; Writer B gets `positions.md, stories.md`; Writer C gets `voice.md`.
 
 ```
-ROAST ROOM SEAT BUILD: WRITE THE BRAIN
+REVALIDA SEAT BUILD: WRITE THE BRAIN
 
-You are writing part of the brain for a new Roast Room seat: [Full Name], who holds the [pillar] seat and owns the question "[question]". The brain teaches a council agent to reason, decide, and talk like this person, so it must capture how they decide, not their biography.
+You are writing part of the brain for a new Revalida seat: [Full Name], who holds the [pillar] seat and owns the question "[question]". The brain teaches a council agent to reason, decide, and talk like this person, so it must capture how they decide, not their biography.
 
 Repo root: [absolute path]
 Read first:
-- .claude/skills/newroaster/references/brain-spec.md (layout, budgets, and rules). Depth: [quick | standard | deep].
+- .claude/skills/advisor-builder/references/brain-spec.md (layout, budgets, and rules). Depth: [quick | standard | deep].
 - Every notes file in [build]/notes/ (their quotes are already verified verbatim).
-- .claude/skills/roast-room/brains/[slug]/sources.md (the source id table, with dates).
-- For format, skim the same files of one original seat: .claude/skills/roast-room/brains/paul-graham/.
+- .claude/skills/revalida/brains/[slug]/sources.md (the source id table, with dates).
+- For format, skim the same files from an existing seat: .claude/skills/revalida/brains/paul-graham/.
 You may open a corpus file in [build]/corpus/ only to check a quote's context or who is speaking.
 
-Write exactly these files into .claude/skills/roast-room/brains/[slug]/ and nothing else: [files].
+Write exactly these files into .claude/skills/revalida/brains/[slug]/ and nothing else: [files].
 
 Rules:
 - Copy every quote exactly from the notes, with its source id, like "..." (S014). Quotes stay under 45 words. Quotation marks mean verbatim: paraphrase goes without them.
@@ -25,7 +25,7 @@ Rules:
 - Lines that are your reading of several sources say "inferred from S0xx, S0yy".
 - No em dashes or en dashes anywhere. Plain English, no filler.
 
-When done, run: node .claude/skills/newroaster/scripts/check_quotes.mjs [build] .claude/skills/roast-room/brains/[slug]
+When done, run: node .claude/skills/advisor-builder/scripts/check_quotes.mjs [build] .claude/skills/revalida/brains/[slug]
 Fix anything it reports in your files, and run it again until your files pass.
 
 Reply with one line: files written and entry counts.
