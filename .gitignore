@@ -1,28 +1,58 @@
-# Secrets and local environment overrides. Keep the checked-in template.
+# Environment files: commit templates with placeholder values only.
 .env
 .env.*
 !.env.example
+!.env.*.example
+
+# Credential and private-key material.
+.secret
+.secrets
+*.secret
+*.secrets
+*.credentials
+*.credentials.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+key.properties
+
+# Common credential filenames (wherever they occur).
+secret.json
+secrets.json
+credentials.json
+
+# Common root-level local credential stores.
+/secret/
+/secrets/
+/credentials/
 
 # Runtime data and dependencies.
-app/.daily-limit.json
-node_modules/
-coverage/
-dist/
-*.log
+/app/.daily-limit.json
+/node_modules/
+/coverage/
+/dist/
+
+# Package-manager debug logs.
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # OS/editor files.
 .DS_Store
 Thumbs.db
+Desktop.ini
 *.swp
 *.swo
 
 # Advisor-builder source material (transcripts, essays, notes) stays on your machine; only the brain ships.
-build/
+/build/
 
-# your councils stay on your machine; the examples ship with the repo
+# Your councils stay on your machine; the examples ship with the repo.
 sessions/*
 !sessions/.gitkeep
 !sessions/*example*/
